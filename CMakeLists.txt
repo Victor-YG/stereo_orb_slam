@@ -42,7 +42,7 @@ endif()
 
 include_directories(./include)
 include_directories(./src)
-include_directories(../ransac_solver/include)
+include_directories(./ransac_solver/include)
 
 add_executable(visual_odometry
     ./src/visual_odometry.cpp
