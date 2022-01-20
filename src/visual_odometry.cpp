@@ -4,23 +4,29 @@
 #include <unistd.h>
 #endif
 
+#include "dataset.h"
+#include "ply_utils.h"
+#include "camera_utils.h"
+#include "camera_model.h"
+#include "visual_odometer.h"
+
+#include <chrono>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <iostream>
 
+#include "sophus/se3.hpp"
 #include "gflags/gflags.h"
 #include "opencv4/opencv2/opencv.hpp"
 
 
-typedef std::pair<std::string, std::string> ImagePair;
+typedef std::chrono::high_resolution_clock Timer;
 
 // input variables
-DEFINE_string(dataset, "", "Data folder.");
+DEFINE_string(dataset, "", "Dataset name. e.g. kitti, EuRoc etc.");
+DEFINE_string(folder, "", "Data folder.");
 DEFINE_string(camera, "", "Stereo camera information file.");
-
-
-void LoadDataset(const std::string& folder, std::vector<ImagePair>& frames);
 
 int main(int argc, char** argv)
 {
@@ -29,7 +35,13 @@ int main(int argc, char** argv)
 
     if (FLAGS_dataset.empty())
     {
-        std::cerr << "[FAIL]: Please provide the path to dataset using -dataset.\n";
+        std::cerr << "[FAIL]: Please provide the dataset name using -dataset.\n";
+        return -1;
+    }
+
+    if (FLAGS_folder.empty())
+    {
+        std::cerr << "[FAIL]: Please provide the path to dataset using -folder.\n";
         return -1;
     }
 
@@ -38,99 +50,101 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    // load images
     std::vector<ImagePair> frames;
-    LoadDataset(FLAGS_dataset, frames);
+    if      (FLAGS_dataset == "kitti") LoadDatasetKitti(FLAGS_folder, frames);
+    else if (FLAGS_dataset == "EuRoc") LoadDatasetEuRoc(FLAGS_folder, frames);
+    else
+    {
+        std::cerr << "[FAIL]: Unknown dataset '" << FLAGS_dataset << "' provided.\n";
+        return -1;
+    }
+    // return 0;
+
+    // load camera
+    CameraModel::Stereo* camera = LoadCamera(FLAGS_camera);
+
+    // setup odometer
+    VisualOdometer vo = VisualOdometer();
+    vo.Camera(camera);
 
     // main loop
+    int start = 0;
     int N = frames.size();
-    for (int i = 0; i < N; i++)
+    // int N = 100;
+
+    namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
+    namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
+
+    std::vector<Eigen::Matrix4f> poses;
+    std::vector<std::array<float, 3>> waypoints;
+    Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity(4, 4);
+    
+    for (int i = start; i < N; i += 1)
     {
+        std::cout << "[INFO]: frame #" << i << ": " << frames[i].first << std::endl;
+
+        // read images
         cv::Mat img_l = cv::imread(frames[i].first, cv::IMREAD_GRAYSCALE);
         cv::Mat img_r = cv::imread(frames[i].second, cv::IMREAD_GRAYSCALE);
 
-        std::vector<cv::KeyPoint> keypoints_1;
-        std::vector<cv::KeyPoint> keypoints_2;
-        std::vector<cv::DMatch> matches;
+        // // undistort images
+        // cv::Mat img_l_undistorted;
+        // cv::Mat img_r_undistorted;
+        // cv::Mat cam_mat = camera->m_cam_1.GetCameraMatrix();
+        // cv::Mat dist_coef = camera->m_cam_1.GetDistortionCoef();
+        // // std::cout << cam_mat << std::endl;
+        // // std::cout << dist_coef << std::endl;
 
-        cv::Mat img_matched_features;
-        cv::drawMatches(img_l, keypoints_1, img_r, keypoints_2, matches, img_matched_features);
-        cv::imshow("Frame (" + std::to_string(i) + " / " + std::to_string(N) + ")", img_matched_features);
+        // cv::undistort(img_l, img_l_undistorted, camera->m_cam_1.GetCameraMatrix(), camera->m_cam_1.GetDistortionCoef());
+        // cv::undistort(img_r, img_r_undistorted, camera->m_cam_2.GetCameraMatrix(), camera->m_cam_2.GetDistortionCoef());
 
-        // sleep(0.05);
-        cv::waitKey(500);
-        cv::destroyAllWindows();
+        // track
+        cv::waitKey(10);
+        auto t1 = Timer::now();
+
+        curr_pose.block<3, 3>(0, 0) = Eigen::Quaternionf(curr_pose.block<3, 3>(0, 0)).normalized().toRotationMatrix();
+        Sophus::SE3 pose_se3(curr_pose);
+        Eigen::Matrix4f trans = vo.Track(img_l, img_r);
+        // Eigen::Matrix4f trans = vo.Track(img_l_undistorted, img_r_undistorted);
+        Sophus::SE3 trans_se3(trans);
+        curr_pose = pose_se3.matrix();
+
+        // pose_se3 = trans_se3 * pose_se3;
+        curr_pose = curr_pose * trans;
+        Eigen::Vector3f position = pose_se3.translation();
+        
+        // std::array<float, 3> waypoint = {
+        //     position(0), 
+        //     position(1), 
+        //     position(2)
+        // };
+
+        std::array<float, 3> waypoint = {
+            curr_pose(0, 3), 
+            curr_pose(1, 3), 
+            curr_pose(2, 3)
+        };
+
+        poses.emplace_back(curr_pose);
+        waypoints.emplace_back(waypoint);
+
+        auto t2 = Timer::now();
+        std::cout << "[INFO]: Elapsed " << 
+        std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
+        << " ms" << std::endl;
+
+        std::cout << "[INFO]: tran = " << std::endl;
+        std::cout << trans << std::endl;
+        std::cout << "[INFO]: pose = " << std::endl;
+        std::cout << curr_pose << std::endl;
+
+        // break;
     }
+    
+    cv::destroyAllWindows();
+    std::cout << "[INFO]: End of sequence." << std::endl;
 
+    SavePointsToPLY("./waypoints.ply", waypoints);
     return 0;
-}
-
-void LoadDataset(const std::string& folder, std::vector<ImagePair>& frames)
-{
-    const std::string csv_l = folder + "/mav0/cam0/data.csv";
-    const std::string csv_r = folder + "/mav0/cam1/data.csv";
-
-    char char_arr[512];
-    std::vector<std::pair<std::string, std::string>> frames_l;
-    std::vector<std::pair<std::string, std::string>> frames_r;
-
-    // read left camera csv
-    std::ifstream stream_l(csv_l, std::fstream::in);
-    if (!stream_l.is_open())
-    {
-        std::cout << "[FAIL]: Failed to open " << csv_l << std::endl;
-        return;
-    }
-
-    stream_l.getline(char_arr, 512); // skip first line
-    while (stream_l.getline(char_arr, 512))
-    {
-        if (stream_l.bad() || stream_l.eof())
-            break;
-
-        std::string line(char_arr);
-        int idx = line.find_first_of(",");
-
-        std::string time_stamp = line.substr(0, idx);
-        std::string image_name = line.substr(idx + 1, line.length());
-        image_name.erase(std::remove_if(image_name.begin(), image_name.end(), ::isspace), image_name.end());
-        frames_l.emplace_back(std::make_pair(time_stamp, image_name));
-    }
-
-    // read right camera csv
-    std::ifstream stream_r(csv_r, std::fstream::in);
-    if (!stream_r.is_open())
-    {
-        std::cout << "[FAIL]: Failed to open " << csv_r << std::endl;
-        return;
-    }
-
-    stream_r.getline(char_arr, 512); // skip first line
-    while (stream_r.getline(char_arr, 512))
-    {
-        if (stream_r.bad() || stream_r.eof())
-            break;
-
-        std::string line(char_arr);
-        int idx = line.find_first_of(",");
-
-        std::string time_stamp = line.substr(0, idx);
-        std::string image_name = line.substr(idx + 1, line.length());
-        image_name.erase(std::remove_if(image_name.begin(), image_name.end(), ::isspace), image_name.end());
-        frames_r.emplace_back(std::make_pair(time_stamp, image_name));
-    }
-
-    // match images with same time stamp
-    for (int i = 0; i < frames_l.size(); i++)
-    {
-        if (frames_l[i].first == frames_r[i].first)
-        {
-            const std::string img_path_l = folder + "/mav0/cam0/data/" + frames_l[i].second;
-            const std::string img_path_r = folder + "/mav0/cam0/data/" + frames_r[i].second;
-            frames.emplace_back(std::make_pair(img_path_l, img_path_r));
-        }
-        else
-        {
-            std::cout << "[WARN]: mismatch in time stamp found." << std::endl;
-        }
-    }
 }
