@@ -59,7 +59,6 @@ int main(int argc, char** argv)
         std::cerr << "[FAIL]: Unknown dataset '" << FLAGS_dataset << "' provided.\n";
         return -1;
     }
-    // return 0;
 
     // load camera
     CameraModel::Stereo* camera = LoadCamera(FLAGS_camera);
@@ -71,7 +70,6 @@ int main(int argc, char** argv)
     // main loop
     int start = 0;
     int N = frames.size();
-    // int N = 100;
 
     namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
     namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
@@ -82,9 +80,8 @@ int main(int argc, char** argv)
     
     for (int i = start; i < N; i += 1)
     {
-        std::cout << "[INFO]: frame #" << i << ": " << frames[i].first << std::endl;
-
         // read images
+        std::cout << "[INFO]: frame #" << i << ": " << frames[i].first << std::endl;
         cv::Mat img_l = cv::imread(frames[i].first, cv::IMREAD_GRAYSCALE);
         cv::Mat img_r = cv::imread(frames[i].second, cv::IMREAD_GRAYSCALE);
 
@@ -99,34 +96,24 @@ int main(int argc, char** argv)
         // cv::undistort(img_l, img_l_undistorted, camera->m_cam_1.GetCameraMatrix(), camera->m_cam_1.GetDistortionCoef());
         // cv::undistort(img_r, img_r_undistorted, camera->m_cam_2.GetCameraMatrix(), camera->m_cam_2.GetDistortionCoef());
 
-        // track
         cv::waitKey(10);
         auto t1 = Timer::now();
 
-        curr_pose.block<3, 3>(0, 0) = Eigen::Quaternionf(curr_pose.block<3, 3>(0, 0)).normalized().toRotationMatrix();
-        Sophus::SE3 pose_se3(curr_pose);
+        // track
         Eigen::Matrix4f trans = vo.Track(img_l, img_r);
         // Eigen::Matrix4f trans = vo.Track(img_l_undistorted, img_r_undistorted);
+        
+        // update pose
+        curr_pose.block<3, 3>(0, 0) = Eigen::Quaternionf(curr_pose.block<3, 3>(0, 0)).normalized().toRotationMatrix();
+        Sophus::SE3 pose_se3(curr_pose);
         Sophus::SE3 trans_se3(trans);
         curr_pose = pose_se3.matrix();
 
-        // pose_se3 = trans_se3 * pose_se3;
         curr_pose = curr_pose * trans;
-        Eigen::Vector3f position = pose_se3.translation();
-        
-        // std::array<float, 3> waypoint = {
-        //     position(0), 
-        //     position(1), 
-        //     position(2)
-        // };
-
-        std::array<float, 3> waypoint = {
-            curr_pose(0, 3), 
-            curr_pose(1, 3), 
-            curr_pose(2, 3)
-        };
-
         poses.emplace_back(curr_pose);
+
+        // store waypoints
+        std::array<float, 3> waypoint = {curr_pose(0, 3), curr_pose(1, 3), curr_pose(2, 3)};
         waypoints.emplace_back(waypoint);
 
         auto t2 = Timer::now();
@@ -138,8 +125,6 @@ int main(int argc, char** argv)
         std::cout << trans << std::endl;
         std::cout << "[INFO]: pose = " << std::endl;
         std::cout << curr_pose << std::endl;
-
-        // break;
     }
     
     cv::destroyAllWindows();
