@@ -1,7 +1,5 @@
 #include "visual_odometer.h"
 
-// extern int frame_id;
-
 
 VisualOdometer::VisualOdometer(
     std::vector<Frame>& cam_frames, 
@@ -17,11 +15,17 @@ VisualOdometer::VisualOdometer(
 
     m_solver = new RANSAC::Solver<PointPair, Eigen::Matrix4f>(&m_trans_model, 100);
     m_pose = Eigen::Matrix4f::Identity(4, 4);
+
+    namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
+    namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
 }
 
 VisualOdometer::~VisualOdometer()
 {
     delete m_solver;
+
+    cv::destroyWindow("Stereo");
+    cv::destroyWindow("Temporal");
 }
 
 void VisualOdometer::Camera(CameraModel::Stereo* camera)
@@ -357,7 +361,7 @@ void VisualOdometer::Update(
         cv::Mat pt = m_curr_container->points[i];
         MapPoint mp = MapPoint(pt.at<float>(0), pt.at<float>(1), pt.at<float>(2));
         
-        mp.Transform(m_pose); // to global ref. frame
+        mp.Transform(new_frame.GlobalPose()); // to global ref. frame
         mp.AddDescriptor(m_curr_container->descriptors[i]);
         
         unsigned int point_id = m_ldm_points.size();

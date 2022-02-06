@@ -9,6 +9,7 @@
 #include "camera_utils.h"
 #include "camera_model.h"
 #include "visual_odometer.h"
+#include "bundle_adjuster.h"
 
 #include <chrono>
 #include <string>
@@ -26,6 +27,7 @@ typedef std::chrono::high_resolution_clock Timer;
 DEFINE_string(dataset, "", "Dataset name. e.g. kitti, EuRoc etc.");
 DEFINE_string(folder, "", "Data folder.");
 DEFINE_string(camera, "", "Stereo camera information file.");
+DEFINE_int32(refine_interval, 10, "Refinement interval for local BA.");
 
 
 int main(int argc, char** argv)
@@ -72,12 +74,12 @@ int main(int argc, char** argv)
     VisualOdometer vo = VisualOdometer(cam_frames, ldm_points);
     vo.Camera(camera);
 
+    // setup bundle Adjuster
+    BundleAdjuster ba = BundleAdjuster(cam_frames, ldm_points);
+
     // main loop
     int start = 0;
     int N = frames.size();
-
-    namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
-    namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
 
     for (int i = start; i < N; i += 1)
     {
@@ -108,7 +110,6 @@ int main(int argc, char** argv)
         std::cout << curr_pose << std::endl;
     }
     
-    cv::destroyAllWindows();
     std::cout << "[INFO]: End of sequence." << std::endl;
 
     // save results

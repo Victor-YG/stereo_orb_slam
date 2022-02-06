@@ -56,6 +56,21 @@ add_executable(visual_odometry
 target_link_libraries(visual_odometry
     ${OpenCV_LIBS}
     Eigen3::Eigen
-    Sophus::Sophus
+    gflags
+)
+
+# slam
+add_executable(slam
+    ./src/slam.cpp
+    ./src/camera_model.cpp
+    ./src/visual_odometer.cpp
+    ./src/bundle_adjuster.cpp
+    ./src/dataset.cpp
+    ./src/camera_utils.cpp
+)
+
+target_link_libraries(slam
+    ${OpenCV_LIBS}
+    Eigen3::Eigen
     gflags
 )
