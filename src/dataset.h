@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-#include <algorithm>
+
 
 typedef std::pair<std::string, std::string> ImagePair;
 

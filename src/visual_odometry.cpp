@@ -28,6 +28,7 @@ DEFINE_string(dataset, "", "Dataset name. e.g. kitti, EuRoc etc.");
 DEFINE_string(folder, "", "Data folder.");
 DEFINE_string(camera, "", "Stereo camera information file.");
 
+
 int main(int argc, char** argv)
 {
     // read inputs
@@ -63,8 +64,13 @@ int main(int argc, char** argv)
     // load camera
     CameraModel::Stereo* camera = LoadCamera(FLAGS_camera);
 
+    // create data containers
+    std::vector<Frame>    cam_frames;
+    std::vector<MapPoint> ldm_points;
+    Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
+
     // setup odometer
-    VisualOdometer vo = VisualOdometer();
+    VisualOdometer vo = VisualOdometer(cam_frames, ldm_points);
     vo.Camera(camera);
 
     // main loop
@@ -74,10 +80,6 @@ int main(int argc, char** argv)
     namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
     namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
 
-    std::vector<Eigen::Matrix4f> poses;
-    std::vector<std::array<float, 3>> waypoints;
-    Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity(4, 4);
-    
     for (int i = start; i < N; i += 1)
     {
         // read images
@@ -85,41 +87,21 @@ int main(int argc, char** argv)
         cv::Mat img_l = cv::imread(frames[i].first, cv::IMREAD_GRAYSCALE);
         cv::Mat img_r = cv::imread(frames[i].second, cv::IMREAD_GRAYSCALE);
 
-        // // undistort images
-        // cv::Mat img_l_undistorted;
-        // cv::Mat img_r_undistorted;
-        // cv::Mat cam_mat = camera->m_cam_1.GetCameraMatrix();
-        // cv::Mat dist_coef = camera->m_cam_1.GetDistortionCoef();
-        // // std::cout << cam_mat << std::endl;
-        // // std::cout << dist_coef << std::endl;
-
-        // cv::undistort(img_l, img_l_undistorted, camera->m_cam_1.GetCameraMatrix(), camera->m_cam_1.GetDistortionCoef());
-        // cv::undistort(img_r, img_r_undistorted, camera->m_cam_2.GetCameraMatrix(), camera->m_cam_2.GetDistortionCoef());
-
         cv::waitKey(10);
         auto t1 = Timer::now();
 
         // track
         Eigen::Matrix4f trans = vo.Track(img_l, img_r);
-        // Eigen::Matrix4f trans = vo.Track(img_l_undistorted, img_r_undistorted);
-        
-        // update pose
-        curr_pose.block<3, 3>(0, 0) = Eigen::Quaternionf(curr_pose.block<3, 3>(0, 0)).normalized().toRotationMatrix();
-        Sophus::SE3 pose_se3(curr_pose);
-        Sophus::SE3 trans_se3(trans);
-        curr_pose = pose_se3.matrix();
-
-        curr_pose = curr_pose * trans;
-        poses.emplace_back(curr_pose);
-
-        // store waypoints
-        std::array<float, 3> waypoint = {curr_pose(0, 3), curr_pose(1, 3), curr_pose(2, 3)};
-        waypoints.emplace_back(waypoint);
 
         auto t2 = Timer::now();
         std::cout << "[INFO]: Elapsed " << 
         std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
         << " ms" << std::endl;
+
+        // update pose
+        curr_pose = curr_pose * trans;
+        Eigen::Quaternionf q(curr_pose.block<3, 3>(0, 0));
+        curr_pose.block<3, 3>(0, 0) = q.normalized().toRotationMatrix();
 
         std::cout << "[INFO]: tran = " << std::endl;
         std::cout << trans << std::endl;
@@ -130,6 +112,9 @@ int main(int argc, char** argv)
     cv::destroyAllWindows();
     std::cout << "[INFO]: End of sequence." << std::endl;
 
-    SavePointsToPLY("./waypoints.ply", waypoints);
+    // save results
+    SavePosesToPLY("./waypoints.ply", cam_frames);
+    SaveMapToPLY("./map.ply", cam_frames, ldm_points);
+
     return 0;
 }

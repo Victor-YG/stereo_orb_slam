@@ -28,7 +28,7 @@ public:
 protected:
     cv::Mat     m_camera_mat;
     cv::Mat     m_distortion;
-    cv::Mat     m_pose_mat;
+    cv::Mat     m_pose_mat;         // camera pose relative to robot base
     cv::Mat     m_projection_mat;
 };
 

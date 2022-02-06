@@ -44,11 +44,11 @@ include_directories(./include)
 include_directories(./src)
 include_directories(./ransac_solver/include)
 
+# visual odometry
 add_executable(visual_odometry
     ./src/visual_odometry.cpp
     ./src/camera_model.cpp
     ./src/visual_odometer.cpp
-    ./src/utils.cpp
     ./src/dataset.cpp
     ./src/camera_utils.cpp
 )

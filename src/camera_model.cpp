@@ -46,7 +46,7 @@ PinholeCamera::PinholeCamera(float fx, float fy, float cx, float cy, float d[5],
     mat.at<float>(2, 1) = 0.0;
     mat.at<float>(2, 2) = 1.0;
 
-    m_projection_mat = mat * m_pose_mat;
+    m_projection_mat = mat * m_pose_mat.inv();
 }
 
 cv::Mat PinholeCamera::GetCameraMatrix() const
@@ -113,6 +113,7 @@ void Stereo::Triangulate(
     cv::Mat points_homo;
     cv::Mat projection_1 = m_cam_1.GetProjectionMatrix();
     cv::Mat projection_2 = m_cam_2.GetProjectionMatrix();
+
     cv::triangulatePoints(projection_1, projection_2, undistorted_kp_1, undistorted_kp_2, points_homo);
 
     int N = points_homo.cols;
@@ -193,6 +194,8 @@ void StereoRectified::Triangulate(
         float x, y, z;
         this->Reprojection(u, v, d, x, y, z);
 
+        if (z < 0.0 || z > 100.0) continue;
+        
         cv::Mat point = cv::Mat(1, 3, CV_32F);
         point.at<float>(0) = x;
         point.at<float>(1) = y;
