@@ -13,14 +13,16 @@
 class BundleAdjuster
 {
 public:
-    BundleAdjuster(std::vector<Frame>& cam_frames, std::vector<MapPoint>& ldm_points);
+    BundleAdjuster(std::vector<Frame*>& cam_frames, std::vector<MapPoint>& ldm_points);
 
-    void Callback_Optimize(unsigned int start_frame_idx, unsigned int end_frame_idx);
+    void Optimize(unsigned int start_frame_id, unsigned int end_frame_id);
 
 private:
     void CreateProblem();
     void SolveProblem();
 
-    std::vector<Frame>&                 m_cam_frames;
+    std::vector<Frame*>&                m_cam_frames;
     std::vector<MapPoint>&              m_ldm_points;
+
+    ceres::Solver::Options              m_options;
 };

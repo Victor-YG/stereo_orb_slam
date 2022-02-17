@@ -1,8 +1,10 @@
 #include "visual_odometer.h"
 
+#include "math_utils.h"
+
 
 VisualOdometer::VisualOdometer(
-    std::vector<Frame>& cam_frames, 
+    std::vector<Frame*>& cam_frames, 
     std::vector<MapPoint>& ldm_points):
     m_cam_frames(cam_frames),
     m_ldm_points(ldm_points)
@@ -16,8 +18,8 @@ VisualOdometer::VisualOdometer(
     m_solver = new RANSAC::Solver<PointPair, Eigen::Matrix4f>(&m_trans_model, 100);
     m_pose = Eigen::Matrix4f::Identity(4, 4);
 
-    namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
-    namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
 }
 
 VisualOdometer::~VisualOdometer()
@@ -285,7 +287,7 @@ void VisualOdometer::Update(
     if (!m_initialized)
     {
         // add new frame
-        Frame new_frame = Frame(Eigen::Matrix4f::Identity());
+        Frame* new_frame = new Frame(nullptr, Eigen::Matrix4f::Identity());
 
         for (int i = 0; i < m_curr_container->points.size(); i++)
         {
@@ -301,7 +303,7 @@ void VisualOdometer::Update(
             // add observations
             cv::KeyPoint kp = m_curr_container->keypoints[i];
             Observation obs = Observation(point_id, kp.pt.x, kp.pt.y, 1.0);
-            new_frame.AddObservation(obs);
+            new_frame->AddObservation(obs);
         }
 
         m_cam_frames.emplace_back(new_frame);
@@ -309,9 +311,8 @@ void VisualOdometer::Update(
     }
 
     // add new frame
-    Frame prev_frame = m_cam_frames[m_cam_frames.size() - 1];
-    Eigen::Matrix4f pose = prev_frame.GlobalPose() * trans;
-    Frame new_frame = Frame(pose);
+    Frame* prev_frame = m_cam_frames[m_cam_frames.size() - 1];
+    Frame* new_frame = new Frame(prev_frame, trans);
 
     // track points from other frames
     unsigned int idx = 0;
@@ -327,7 +328,7 @@ void VisualOdometer::Update(
             cv::Mat pt = m_curr_container->points[idx];
             MapPoint mp = MapPoint(pt.at<float>(0), pt.at<float>(1), pt.at<float>(2));
             
-            mp.Transform(new_frame.GlobalPose()); // to global ref. frame
+            mp.Transform(new_frame->GlobalPose()); // to global ref. frame
             mp.AddDescriptor(m_curr_container->descriptors[idx]);
 
             unsigned int point_id = m_ldm_points.size();
@@ -337,7 +338,7 @@ void VisualOdometer::Update(
             // add observations
             cv::KeyPoint kp = m_curr_container->keypoints[idx];
             Observation obs = Observation(point_id, kp.pt.x, kp.pt.y, 1.0);
-            new_frame.AddObservation(obs);
+            new_frame->AddObservation(obs);
         }
 
         // track point already observed
@@ -350,7 +351,7 @@ void VisualOdometer::Update(
         // add observations
         cv::KeyPoint kp = m_curr_container->keypoints[idx_curr];
         Observation obs = Observation(global_idx, kp.pt.x, kp.pt.y, 1.0);
-        new_frame.AddObservation(obs);
+        new_frame->AddObservation(obs);
 
         idx = idx_curr + 1;
     }
@@ -361,7 +362,7 @@ void VisualOdometer::Update(
         cv::Mat pt = m_curr_container->points[i];
         MapPoint mp = MapPoint(pt.at<float>(0), pt.at<float>(1), pt.at<float>(2));
         
-        mp.Transform(new_frame.GlobalPose()); // to global ref. frame
+        mp.Transform(new_frame->GlobalPose()); // to global ref. frame
         mp.AddDescriptor(m_curr_container->descriptors[i]);
         
         unsigned int point_id = m_ldm_points.size();
@@ -371,7 +372,7 @@ void VisualOdometer::Update(
         // add observations
         cv::KeyPoint kp = m_curr_container->keypoints[i];
         Observation obs = Observation(point_id, kp.pt.x, kp.pt.y, 1.0);
-        new_frame.AddObservation(obs);
+        new_frame->AddObservation(obs);
     }
 
     m_cam_frames.emplace_back(new_frame);

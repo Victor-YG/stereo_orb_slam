@@ -16,7 +16,7 @@ class VisualOdometer
 {
 public:
     VisualOdometer(
-        std::vector<Frame>& cam_frames, 
+        std::vector<Frame*>& cam_frames, 
         std::vector<MapPoint>& ldm_points);
     ~VisualOdometer();
 
@@ -70,7 +70,7 @@ private:
     bool                                m_success = true;
 
     // camera and landmark tracking
-    std::vector<Frame>&                 m_cam_frames;
+    std::vector<Frame*>&                m_cam_frames;
     std::vector<MapPoint>&              m_ldm_points;
 
     // transformation estimation

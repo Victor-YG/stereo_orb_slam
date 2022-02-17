@@ -98,6 +98,16 @@ Stereo::Stereo(
     m_cam_2 = cam_2;
 }
 
+PinholeCamera* Stereo::GetCamera1()
+{
+    return &m_cam_1;
+}
+
+PinholeCamera* Stereo::GetCamera2()
+{
+    return &m_cam_2;
+}
+
 void Stereo::Triangulate(
     const std::vector<cv::Point2f>& keypoints_1,
     const std::vector<cv::Point2f>& keypoints_2,

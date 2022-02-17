@@ -38,6 +38,9 @@ class Stereo
 public:
     Stereo(const PinholeCamera& cam_1, const PinholeCamera& cam_2);
 
+    PinholeCamera* GetCamera1();
+    PinholeCamera* GetCamera2();
+
     void Triangulate(
         const std::vector<cv::Point2f>& keypoints_1,
         const std::vector<cv::Point2f>& keypoints_2,

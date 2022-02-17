@@ -43,7 +43,7 @@ void SavePointsToPLY(
 
 void SavePosesToPLY(
     const std::string& file_path, 
-    const std::vector<Frame>& frames)
+    const std::vector<Frame*>& frames)
 {
     std::ofstream output;
     output.open(file_path);
@@ -63,18 +63,28 @@ void SavePosesToPLY(
     output << "end_header" << std::endl;
 
     // write frames
+    // Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
+
     for (int i = 0; i < N; i++)
     {
-        Eigen::Matrix4f pose = frames[i].GlobalPose();
-        output << pose(0, 3) << " ";
-        output << pose(1, 3) << " ";
-        output << pose(2, 3) << std::endl;
+        // Eigen::Matrix4f trans = frames[i]->RelativePose();
+        // curr_pose = curr_pose * trans;
+        // Normalize(curr_pose);
+
+        // output << curr_pose(0, 3) << " ";
+        // output << curr_pose(1, 3) << " ";
+        // output << curr_pose(2, 3) << std::endl;
+
+        Eigen::Matrix4f trans = frames[i]->GlobalPose();
+        output << trans(0, 3) << " ";
+        output << trans(1, 3) << " ";
+        output << trans(2, 3) << std::endl;
     }
 }
 
 void SaveMapToPLY(
     const std::string& file_path, 
-    const std::vector<Frame>& frames,
+    const std::vector<Frame*>& frames,
     const std::vector<MapPoint>& points)
 {
     std::ofstream output;
@@ -100,12 +110,22 @@ void SaveMapToPLY(
     output << "end_header" << std::endl;
 
     // write frames
+    // Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
+
     for (int i = 0; i < num_frames; i++)
     {
-        Eigen::Matrix4f pose = frames[i].GlobalPose();
-        output << pose(0, 3) << " ";
-        output << pose(1, 3) << " ";
-        output << pose(2, 3) << " ";
+        // Eigen::Matrix4f trans = frames[i]->RelativePose();
+        // curr_pose = curr_pose * trans;
+        // Normalize(curr_pose);
+
+        // output << curr_pose(0, 3) << " ";
+        // output << curr_pose(1, 3) << " ";
+        // output << curr_pose(2, 3) << " ";
+
+        Eigen::Matrix4f trans = frames[i]->GlobalPose();
+        output << trans(0, 3) << " ";
+        output << trans(1, 3) << " ";
+        output << trans(2, 3) << " ";
         output <<   0 << " ";
         output << 255 << " ";
         output <<   0 << std::endl;

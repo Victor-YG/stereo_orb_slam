@@ -6,10 +6,12 @@
 
 #include "dataset.h"
 #include "ply_utils.h"
+#include "math_utils.h"
 #include "camera_utils.h"
 #include "camera_model.h"
 #include "visual_odometer.h"
 #include "bundle_adjuster.h"
+#include "reprojection_error.h"
 
 #include <chrono>
 #include <string>
@@ -27,7 +29,8 @@ typedef std::chrono::high_resolution_clock Timer;
 DEFINE_string(dataset, "", "Dataset name. e.g. kitti, EuRoc etc.");
 DEFINE_string(folder, "", "Data folder.");
 DEFINE_string(camera, "", "Stereo camera information file.");
-DEFINE_int32(refine_interval, 10, "Refinement interval for local BA.");
+DEFINE_int32(refine_interval, 5, "Refinement interval for local BA.");
+DEFINE_string(output_suffix, "_slam", "Suffix to describe output file.");
 
 
 int main(int argc, char** argv)
@@ -65,8 +68,18 @@ int main(int argc, char** argv)
     // load camera
     CameraModel::Stereo* camera = LoadCamera(FLAGS_camera);
 
+    // set up reprojection error
+    CameraModel::PinholeCamera* cam = camera->GetCamera1();
+    cv::Mat mat_projection = cam->GetProjectionMatrix();
+    // TODO::to directly use the projection matrix which is more generic (work for right camera as well)
+    float fx = mat_projection.at<float>(0, 0);
+    float fy = mat_projection.at<float>(1, 1);
+    float cx = mat_projection.at<float>(0, 2);
+    float cy = mat_projection.at<float>(1, 2);
+    ReprojectionError::SetCameraParams(fx, fy, cx, cy);
+
     // create data containers
-    std::vector<Frame>    cam_frames;
+    std::vector<Frame*>   cam_frames;
     std::vector<MapPoint> ldm_points;
     Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
 
@@ -94,6 +107,13 @@ int main(int argc, char** argv)
         // track
         Eigen::Matrix4f trans = vo.Track(img_l, img_r);
 
+        // local BA
+        unsigned int n = cam_frames.size();
+        if (n != 0 && n % FLAGS_refine_interval == 0)
+        {
+            ba.Optimize(std::max(0, int(n - 2 * FLAGS_refine_interval)), n);
+        }
+
         auto t2 = Timer::now();
         std::cout << "[INFO]: Elapsed " << 
         std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
@@ -101,8 +121,7 @@ int main(int argc, char** argv)
 
         // update pose
         curr_pose = curr_pose * trans;
-        Eigen::Quaternionf q(curr_pose.block<3, 3>(0, 0));
-        curr_pose.block<3, 3>(0, 0) = q.normalized().toRotationMatrix();
+        Normalize(curr_pose);
 
         std::cout << "[INFO]: tran = " << std::endl;
         std::cout << trans << std::endl;
@@ -113,8 +132,11 @@ int main(int argc, char** argv)
     std::cout << "[INFO]: End of sequence." << std::endl;
 
     // save results
-    SavePosesToPLY("./waypoints.ply", cam_frames);
-    SaveMapToPLY("./map.ply", cam_frames, ldm_points);
+    std::string suffix = FLAGS_output_suffix;
+    std::string waypoint_filename = "./waypoints" + suffix + ".ply";
+    std::string map_filename = "./map" + suffix + ".ply";
+    SavePosesToPLY(waypoint_filename, cam_frames);
+    SaveMapToPLY(map_filename, cam_frames, ldm_points);
 
     return 0;
 }

@@ -25,6 +25,13 @@ public:
         m_position[2] = position(2);
     }
 
+    void Position(std::array<double, 3> pos)
+    {
+        m_position[0] = pos[0];
+        m_position[1] = pos[1];
+        m_position[2] = pos[2];
+    }
+    
     void AddDescriptor(cv::Mat descriptor) { m_descriptors.emplace_back(descriptor); }
 
     std::array<float, 3> Position() const { return m_position; }

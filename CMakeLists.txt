@@ -40,6 +40,9 @@ else()
     message(FATAL_ERROR "gflags not found.")
 endif()
 
+# Find ceres
+find_package(Ceres REQUIRED COMPONENTS SuiteSparse EigenSparse)
+
 include_directories(./include)
 include_directories(./src)
 include_directories(./ransac_solver/include)
@@ -71,6 +74,7 @@ add_executable(slam
 
 target_link_libraries(slam
     ${OpenCV_LIBS}
+    Ceres::ceres
     Eigen3::Eigen
     gflags
 )

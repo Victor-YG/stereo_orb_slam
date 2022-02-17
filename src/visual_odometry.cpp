@@ -6,6 +6,7 @@
 
 #include "dataset.h"
 #include "ply_utils.h"
+#include "math_utils.h"
 #include "camera_utils.h"
 #include "camera_model.h"
 #include "visual_odometer.h"
@@ -64,7 +65,7 @@ int main(int argc, char** argv)
     CameraModel::Stereo* camera = LoadCamera(FLAGS_camera);
 
     // create data containers
-    std::vector<Frame>    cam_frames;
+    std::vector<Frame*>    cam_frames;
     std::vector<MapPoint> ldm_points;
     Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
 
@@ -75,6 +76,7 @@ int main(int argc, char** argv)
     // main loop
     int start = 0;
     int N = frames.size();
+    N = 50;
 
     namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
     namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
@@ -99,8 +101,7 @@ int main(int argc, char** argv)
 
         // update pose
         curr_pose = curr_pose * trans;
-        Eigen::Quaternionf q(curr_pose.block<3, 3>(0, 0));
-        curr_pose.block<3, 3>(0, 0) = q.normalized().toRotationMatrix();
+        Normalize(curr_pose);
 
         std::cout << "[INFO]: tran = " << std::endl;
         std::cout << trans << std::endl;
