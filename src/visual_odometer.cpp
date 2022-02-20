@@ -69,7 +69,7 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
         cv::Mat point = points[i];
         if (abs(point.at<float>(2)) < 1000.0)
         {
-            m_curr_container->AddKeyPoint(keypoints_l[i]);
+            m_curr_container->AddKeyPoints(keypoints_l[i], keypoints_r[i]);
             m_curr_container->AddDescriptor(descriptors_l[i]);
             m_curr_container->AddPoint(point);
         }
@@ -250,8 +250,8 @@ void VisualOdometer::MatchFeaturesBetweenTemporaryFrames(
 
     cv::Mat img_features;
     cv::drawMatches(
-        m_curr_container->image, m_curr_container->keypoints, 
-        m_prev_container->image, m_prev_container->keypoints, 
+        m_curr_container->image, m_curr_container->keypoints_l, 
+        m_prev_container->image, m_prev_container->keypoints_l, 
         final_matches, img_features);
     cv::imshow("Temporal", img_features);
 }
@@ -301,8 +301,9 @@ void VisualOdometer::Update(
             m_curr_container->AddGlobalIndex(point_id);
 
             // add observations
-            cv::KeyPoint kp = m_curr_container->keypoints[i];
-            Observation obs = Observation(point_id, kp.pt.x, kp.pt.y, 1.0);
+            cv::KeyPoint kp_l = m_curr_container->keypoints_l[i];
+            cv::KeyPoint kp_r = m_curr_container->keypoints_r[i];
+            Observation obs = Observation(point_id, kp_l.pt.x, kp_l.pt.y, kp_r.pt.x, kp_r.pt.y, 1.0);
             new_frame->AddObservation(obs);
         }
 
@@ -336,8 +337,9 @@ void VisualOdometer::Update(
             m_curr_container->AddGlobalIndex(point_id);
 
             // add observations
-            cv::KeyPoint kp = m_curr_container->keypoints[idx];
-            Observation obs = Observation(point_id, kp.pt.x, kp.pt.y, 1.0);
+            cv::KeyPoint kp_l = m_curr_container->keypoints_l[idx];
+            cv::KeyPoint kp_r = m_curr_container->keypoints_r[idx];
+            Observation obs = Observation(point_id, kp_l.pt.x, kp_l.pt.y, kp_r.pt.x, kp_r.pt.y, 1.0);
             new_frame->AddObservation(obs);
         }
 
@@ -349,8 +351,9 @@ void VisualOdometer::Update(
         m_curr_container->AddGlobalIndex(global_idx);
 
         // add observations
-        cv::KeyPoint kp = m_curr_container->keypoints[idx_curr];
-        Observation obs = Observation(global_idx, kp.pt.x, kp.pt.y, 1.0);
+        cv::KeyPoint kp_l = m_curr_container->keypoints_l[idx_curr];
+        cv::KeyPoint kp_r = m_curr_container->keypoints_r[idx_curr];
+        Observation obs = Observation(global_idx, kp_l.pt.x, kp_l.pt.y, kp_r.pt.x, kp_r.pt.y, 1.0);
         new_frame->AddObservation(obs);
 
         idx = idx_curr + 1;
@@ -370,8 +373,9 @@ void VisualOdometer::Update(
         m_curr_container->AddGlobalIndex(point_id);
 
         // add observations
-        cv::KeyPoint kp = m_curr_container->keypoints[i];
-        Observation obs = Observation(point_id, kp.pt.x, kp.pt.y, 1.0);
+        cv::KeyPoint kp_l = m_curr_container->keypoints_l[i];
+        cv::KeyPoint kp_r = m_curr_container->keypoints_r[i];
+        Observation obs = Observation(point_id, kp_l.pt.x, kp_l.pt.y, kp_r.pt.x, kp_r.pt.y, 1.0);
         new_frame->AddObservation(obs);
     }
 

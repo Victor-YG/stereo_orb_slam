@@ -29,9 +29,11 @@ typedef std::chrono::high_resolution_clock Timer;
 DEFINE_string(dataset, "", "Dataset name. e.g. kitti, EuRoc etc.");
 DEFINE_string(folder, "", "Data folder.");
 DEFINE_string(camera, "", "Stereo camera information file.");
-DEFINE_int32(refine_interval, 5, "Refinement interval for local BA.");
+DEFINE_int32(refine_interval, 10, "Refinement interval for local BA.");
 DEFINE_string(output_suffix, "_slam", "Suffix to describe output file.");
 
+
+void InitializeStereoReprojectionError(const cv::Mat& projection_l, const cv::Mat& projection_r);
 
 int main(int argc, char** argv)
 {
@@ -69,14 +71,11 @@ int main(int argc, char** argv)
     CameraModel::Stereo* camera = LoadCamera(FLAGS_camera);
 
     // set up reprojection error
-    CameraModel::PinholeCamera* cam = camera->GetCamera1();
-    cv::Mat mat_projection = cam->GetProjectionMatrix();
-    // TODO::to directly use the projection matrix which is more generic (work for right camera as well)
-    float fx = mat_projection.at<float>(0, 0);
-    float fy = mat_projection.at<float>(1, 1);
-    float cx = mat_projection.at<float>(0, 2);
-    float cy = mat_projection.at<float>(1, 2);
-    ReprojectionError::SetCameraParams(fx, fy, cx, cy);
+    CameraModel::PinholeCamera* cam_l = camera->GetCamera1();
+    CameraModel::PinholeCamera* cam_r = camera->GetCamera2();
+    cv::Mat projection_l = cam_l->GetProjectionMatrix();
+    cv::Mat projection_r = cam_r->GetProjectionMatrix();
+    InitializeStereoReprojectionError(projection_l, projection_r);
 
     // create data containers
     std::vector<Frame*>   cam_frames;
@@ -139,4 +138,39 @@ int main(int argc, char** argv)
     SaveMapToPLY(map_filename, cam_frames, ldm_points);
 
     return 0;
+}
+
+void InitializeStereoReprojectionError(const cv::Mat& projection_l, const cv::Mat& projection_r)
+{
+    std::array<double, 12> p_l;
+    std::array<double, 12> p_r;
+
+    p_l[ 0] = (double) projection_l.at<float>(0, 0);
+    p_l[ 1] = (double) projection_l.at<float>(0, 1);
+    p_l[ 2] = (double) projection_l.at<float>(0, 2);
+    p_l[ 3] = (double) projection_l.at<float>(0, 3);
+    p_l[ 4] = (double) projection_l.at<float>(1, 0);
+    p_l[ 5] = (double) projection_l.at<float>(1, 1);
+    p_l[ 6] = (double) projection_l.at<float>(1, 2);
+    p_l[ 7] = (double) projection_l.at<float>(1, 3);
+    p_l[ 8] = (double) projection_l.at<float>(2, 0);
+    p_l[ 9] = (double) projection_l.at<float>(2, 1);
+    p_l[10] = (double) projection_l.at<float>(2, 2);
+    p_l[11] = (double) projection_l.at<float>(2, 3);
+
+    p_r[ 0] = (double) projection_r.at<float>(0, 0);
+    p_r[ 1] = (double) projection_r.at<float>(0, 1);
+    p_r[ 2] = (double) projection_r.at<float>(0, 2);
+    p_r[ 3] = (double) projection_r.at<float>(0, 3);
+    p_r[ 4] = (double) projection_r.at<float>(1, 0);
+    p_r[ 5] = (double) projection_r.at<float>(1, 1);
+    p_r[ 6] = (double) projection_r.at<float>(1, 2);
+    p_r[ 7] = (double) projection_r.at<float>(1, 3);
+    p_r[ 8] = (double) projection_r.at<float>(2, 0);
+    p_r[ 9] = (double) projection_r.at<float>(2, 1);
+    p_r[10] = (double) projection_r.at<float>(2, 2);
+    p_r[11] = (double) projection_r.at<float>(2, 3);
+
+    ReprojectionError::SetLeftProjection(p_l);
+    ReprojectionError::SetRightProjection(p_r);
 }

@@ -95,7 +95,7 @@ void BundleAdjuster::Optimize(unsigned int start_frame_id, unsigned int end_fram
 
             // add loss
             ceres::CostFunction* cost_func;
-            cost_func = ReprojectionError::Create(obs.u, obs.v);
+            cost_func = ReprojectionError::Create(obs.u_l, obs.v_l, obs.u_r, obs.v_r);
             ceres::LossFunction* loss_func = new ceres::HuberLoss(1.0);
 
             problem.AddResidualBlock(cost_func, loss_func, &camera_poses[camera_poses.size() - 1][0], &points[pt_idx][0]);

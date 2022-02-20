@@ -18,9 +18,6 @@ public:
     void Optimize(unsigned int start_frame_id, unsigned int end_frame_id);
 
 private:
-    void CreateProblem();
-    void SolveProblem();
-
     std::vector<Frame*>&                m_cam_frames;
     std::vector<MapPoint>&              m_ldm_points;
 
