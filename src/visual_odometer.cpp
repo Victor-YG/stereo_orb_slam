@@ -33,6 +33,7 @@ VisualOdometer::~VisualOdometer()
 void VisualOdometer::Camera(CameraModel::Stereo* camera)
 {
     m_camera = camera;
+    m_max_distance = m_camera->MaxSensibleDistance();
 }
 
 CameraModel::Stereo* VisualOdometer::Camera()
@@ -67,7 +68,7 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
     {
         // within max range
         cv::Mat point = points[i];
-        if (abs(point.at<float>(2)) < 1000.0)
+        if (abs(point.at<float>(2)) < m_max_distance)
         {
             m_curr_container->AddKeyPoints(keypoints_l[i], keypoints_r[i]);
             m_curr_container->AddDescriptor(descriptors_l[i]);

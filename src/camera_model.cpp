@@ -108,6 +108,18 @@ PinholeCamera* Stereo::GetCamera2()
     return &m_cam_2;
 }
 
+float Stereo::MaxSensibleDistance()
+{
+    cv::Mat cam_mat = m_cam_1.GetCameraMatrix();
+    cv::Mat pose_l = m_cam_1.GetPoseMatrix();
+    cv::Mat pose_r = m_cam_2.GetPoseMatrix();
+
+    cv::Mat pose_lr = pose_l.inv() * pose_r;
+
+    float max_distance = cam_mat.at<float>(0, 0) * pose_lr.at<float>(0, 3);
+    return max_distance;
+}
+
 void Stereo::Triangulate(
     const std::vector<cv::Point2f>& keypoints_1,
     const std::vector<cv::Point2f>& keypoints_2,

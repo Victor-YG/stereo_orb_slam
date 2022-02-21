@@ -41,6 +41,8 @@ public:
     PinholeCamera* GetCamera1();
     PinholeCamera* GetCamera2();
 
+    float MaxSensibleDistance();
+
     void Triangulate(
         const std::vector<cv::Point2f>& keypoints_1,
         const std::vector<cv::Point2f>& keypoints_2,

@@ -55,6 +55,7 @@ private:
     // camera
     CameraModel::Stereo*                m_camera;
     Eigen::Matrix4f                     m_pose;
+    float                               m_max_distance;
 
     // features detection, matching, and tracking
     cv::Ptr<cv::FeatureDetector>        m_detector;
