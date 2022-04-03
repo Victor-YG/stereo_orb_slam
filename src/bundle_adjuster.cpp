@@ -6,7 +6,7 @@
 #include "reprojection_error.h"
 
 
-BundleAdjuster::BundleAdjuster(std::vector<Frame*>& cam_frames, std::vector<MapPoint>& ldm_points):
+BundleAdjuster::BundleAdjuster(std::vector<Frame*>& cam_frames, std::vector<MapPoint*>& ldm_points):
     m_cam_frames(cam_frames), m_ldm_points(ldm_points)
 {
     // setup optimizer options
@@ -48,7 +48,7 @@ void BundleAdjuster::Optimize(unsigned int start_frame_id, unsigned int end_fram
     for (int i = start_frame_id; i < end_frame_id; i++)
     {
         Frame* frame = m_cam_frames[i];
-        num_of_points += frame->GetObservations().size(); // more obs than points
+        num_of_points += frame->Observations().size(); // more obs than points
     }
 
     points.reserve(num_of_points);
@@ -68,7 +68,7 @@ void BundleAdjuster::Optimize(unsigned int start_frame_id, unsigned int end_fram
         camera_poses.emplace_back(pose);
 
         // add points and loss from observations
-        const std::vector<Observation>& observations = frame->GetObservations();
+        const std::vector<Observation>& observations = frame->Observations();
 
         for (int i = 0; i < observations.size(); i++)
         {
@@ -77,7 +77,7 @@ void BundleAdjuster::Optimize(unsigned int start_frame_id, unsigned int end_fram
             Observation obs = observations[i];
             if (glb_id_to_pt_idx.find(obs.point_id) == glb_id_to_pt_idx.end())
             {
-                MapPoint* mp = &m_ldm_points[obs.point_id];
+                MapPoint* mp = m_ldm_points[obs.point_id];
 
                 std::array<float, 3> position = mp->Position();
                 std::array<double, 3> position_d;
@@ -127,6 +127,6 @@ void BundleAdjuster::Optimize(unsigned int start_frame_id, unsigned int end_fram
     for (int i = 0; i < points.size(); i++)
     {
         unsigned int global_id = point_ids[i];
-        m_ldm_points[global_id].Position(points[i]);
+        m_ldm_points[global_id]->Position(points[i]);
     }
 }

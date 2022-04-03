@@ -66,7 +66,7 @@ int main(int argc, char** argv)
 
     // create data containers
     std::vector<Frame*>    cam_frames;
-    std::vector<MapPoint> ldm_points;
+    std::vector<MapPoint*> ldm_points;
     Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
 
     // setup odometer

@@ -6,6 +6,8 @@
 #include "opencv4/opencv2/opencv.hpp"
 
 
+class Frame;
+
 class MapPoint
 {
 public:
@@ -35,9 +37,10 @@ public:
     void AddDescriptor(cv::Mat descriptor) { m_descriptors.emplace_back(descriptor); }
 
     std::array<float, 3> Position() const { return m_position; }
+    void Position(const std::array<float, 3>& pos) { m_position = pos; }
     std::vector<cv::Mat> Descriptors() const { return m_descriptors; }
 
 private:
-    std::array<float, 3> m_position;
-    std::vector<cv::Mat> m_descriptors;
+    std::array<float, 3>    m_position;
+    std::vector<cv::Mat>    m_descriptors;
 };

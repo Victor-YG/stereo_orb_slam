@@ -6,9 +6,11 @@
 
 #include "dataset.h"
 #include "ply_utils.h"
+#include "pose_graph.h"
 #include "math_utils.h"
 #include "camera_utils.h"
 #include "camera_model.h"
+#include "loop_detector.h"
 #include "visual_odometer.h"
 #include "bundle_adjuster.h"
 #include "reprojection_error.h"
@@ -30,7 +32,7 @@ DEFINE_string(dataset, "", "Dataset name. e.g. kitti, EuRoc etc.");
 DEFINE_string(folder, "", "Data folder.");
 DEFINE_string(camera, "", "Stereo camera information file.");
 DEFINE_int32(refine_interval, 10, "Refinement interval for local BA.");
-DEFINE_string(output_suffix, "_slam", "Suffix to describe output file.");
+DEFINE_string(output_suffix, "slam", "Suffix to describe output file.");
 
 
 void InitializeStereoReprojectionError(const cv::Mat& projection_l, const cv::Mat& projection_r);
@@ -78,20 +80,29 @@ int main(int argc, char** argv)
     InitializeStereoReprojectionError(projection_l, projection_r);
 
     // create data containers
-    std::vector<Frame*>   cam_frames;
-    std::vector<MapPoint> ldm_points;
+    std::vector<Frame*>    cam_frames;
+    std::vector<MapPoint*> ldm_points;
+    std::vector<PoseGraphEdge>  edges;
     Eigen::Matrix4f curr_pose = Eigen::Matrix4f::Identity();
 
     // setup odometer
-    VisualOdometer vo = VisualOdometer(cam_frames, ldm_points);
+    VisualOdometer vo(cam_frames, ldm_points);
     vo.Camera(camera);
 
     // setup bundle Adjuster
-    BundleAdjuster ba = BundleAdjuster(cam_frames, ldm_points);
+    BundleAdjuster ba(cam_frames, ldm_points);
+
+    // setup pose graph optimizer
+    PoseGraphOptimizer po(ba, cam_frames, edges);
+
+    // setup loop detector
+    LoopDetector ld(po, cam_frames, edges);
+    ld.LoadVocabulary("../res/vocabulary/small_db.yml.gz");
 
     // main loop
     int start = 0;
     int N = frames.size();
+    // N = 10;
 
     for (int i = start; i < N; i += 1)
     {
@@ -113,6 +124,10 @@ int main(int argc, char** argv)
             ba.Optimize(std::max(0, int(n - 2 * FLAGS_refine_interval)), n);
         }
 
+        FrameDataContainer* frame_data = vo.GetCurrFrameData();
+        ld.Query(frame_data->descriptors);
+        ld.Track(frame_data->descriptors);
+
         auto t2 = Timer::now();
         std::cout << "[INFO]: Elapsed " << 
         std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
@@ -130,12 +145,20 @@ int main(int argc, char** argv)
     
     std::cout << "[INFO]: End of sequence." << std::endl;
 
+    // final ba
+    ba.Optimize(0, cam_frames.size() - 1);
+
     // save results
     std::string suffix = FLAGS_output_suffix;
-    std::string waypoint_filename = "./waypoints" + suffix + ".ply";
-    std::string map_filename = "./map" + suffix + ".ply";
+    std::string waypoint_filename = "./waypoints_" + suffix + ".ply";
+    std::string map_filename = "./map_" + suffix + ".ply";
+    std::string pose_graph_filename = "./pose_graph_" + suffix + ".ply";
     SavePosesToPLY(waypoint_filename, cam_frames);
     SaveMapToPLY(map_filename, cam_frames, ldm_points);
+    SavePoseGraphToPLY(pose_graph_filename, cam_frames, edges);
+
+    // save vocabulary
+    ld.SaveVocabulary("../res/vocabulary/small_db.yml.gz");
 
     return 0;
 }

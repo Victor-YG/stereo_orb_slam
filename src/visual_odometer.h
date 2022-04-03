@@ -17,11 +17,30 @@ class VisualOdometer
 public:
     VisualOdometer(
         std::vector<Frame*>& cam_frames, 
-        std::vector<MapPoint>& ldm_points);
+        std::vector<MapPoint*>& ldm_points);
     ~VisualOdometer();
 
     void Camera(CameraModel::Stereo* camera);
-    CameraModel::Stereo* Camera();
+    CameraModel::Stereo* Camera() const;
+
+    FrameDataContainer* GetCurrFrameData();
+
+    static void MatchPointsBetweenFrames(
+        Frame* src, Frame* dst, 
+        std::vector<PointPair>& point_pairs, 
+        std::vector<cv::DMatch>& final_matches);
+
+    static void MatchPoints(
+        const std::vector<cv::Mat>& descriptors_src, 
+        const std::vector<cv::Mat>& descriptors_dst, 
+        const std::vector<cv::Mat>& points_src, 
+        const std::vector<cv::Mat>& points_dst, 
+        std::vector<PointPair>& point_pairs, 
+        std::vector<cv::DMatch>& final_matches);
+
+    static bool CalcTransformation(
+        const std::vector<PointPair>& point_pairs, 
+        Eigen::Matrix4f& transformation);
 
     Eigen::Matrix4f Track(const cv::Mat& img_l, const cv::Mat& img_r);
 
@@ -41,40 +60,41 @@ private:
         const std::vector<cv::KeyPoint>& keypoints_2, 
         std::vector<cv::Mat>& points);
 
-    void MatchFeaturesBetweenTemporaryFrames(
+    void MatchFeaturesBetweenTemporalFrames(
         std::vector<PointPair>& point_pairs, 
         std::vector<cv::DMatch>& final_matches);
-
-    Eigen::Matrix4f CalcTransformation(const std::vector<PointPair>& point_pairs);
 
     void Update(
         const Eigen::Matrix4f& trans, 
         const std::vector<cv::DMatch>& final_matches);
 
 private:
+    // features detection, matching, and tracking
+    static inline cv::Ptr<cv::FeatureDetector>      m_detector;
+    static inline cv::Ptr<cv::DescriptorMatcher>    m_matcher;
+
+    // transformation estimation
+    static inline RANSAC::Solver<PointPair, Eigen::Matrix4f>* m_solver;
+    static inline PointSetTransModel                m_trans_model;
+
+    // frame data ref
+    FrameDataContainer*                 m_curr_container;
+    FrameDataContainer*                 m_prev_container;
+
+    // frame data
+    FrameDataContainer                  m_container_1;
+    FrameDataContainer                  m_container_2;
+
     // camera
     CameraModel::Stereo*                m_camera;
     Eigen::Matrix4f                     m_pose;
     float                               m_max_distance;
 
-    // features detection, matching, and tracking
-    cv::Ptr<cv::FeatureDetector>        m_detector;
-    cv::Ptr<cv::DescriptorMatcher>      m_matcher;
-
-    FrameDataContainer                  m_container_1;
-    FrameDataContainer                  m_container_2;
-
-    FrameDataContainer*                  m_curr_container;
-    FrameDataContainer*                  m_prev_container;
-
+    // status
     bool                                m_initialized = false;
     bool                                m_success = true;
 
     // camera and landmark tracking
     std::vector<Frame*>&                m_cam_frames;
-    std::vector<MapPoint>&              m_ldm_points;
-
-    // transformation estimation
-    RANSAC::Solver<PointPair, Eigen::Matrix4f>* m_solver;
-    PointSetTransModel                  m_trans_model;
+    std::vector<MapPoint*>&             m_ldm_points;
 };
