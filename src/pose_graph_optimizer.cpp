@@ -28,7 +28,6 @@ PoseGraphOptimizer::PoseGraphOptimizer(
 
 PoseGraphOptimizer::~PoseGraphOptimizer()
 {
-    // delete m_optimizer;
     // SavePoseGraph("./pose_graph.txt");
 }
 
@@ -55,7 +54,7 @@ void PoseGraphOptimizer::Optimize()
 
     // add constraints
     AddOdometryConstraints(m_last_id, end_id);
-    AddLoopClosureConstraints(/*start_id*/);
+    AddLoopClosureConstraints();
 
     m_last_id = end_id;
 
@@ -183,7 +182,11 @@ void PoseGraphOptimizer::AddLoopClosureConstraints()
         MatchFeaturesBetweenOverlapedFrames(id_1, id_2, point_pairs);
         Eigen::Matrix4f trans = Eigen::Matrix4f::Identity();
         
-        bool success = VisualOdometer::CalcTransformation(point_pairs, trans);
+        unsigned int N = point_pairs.size();
+        std::vector<bool> mask(N, false);
+        std::vector<float> weights(N, 1.0);
+        std::vector<float> losses(N, 0.0);
+        bool success = VisualOdometer::CalcTransformation(point_pairs, weights, trans, mask, losses);
         if (!success) continue;
 
         g2o::EdgeSE3* e_SE3 = new g2o::EdgeSE3();

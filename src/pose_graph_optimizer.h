@@ -31,8 +31,7 @@ private:
     void AddOdometryConstraints(unsigned int start_frame_id, unsigned int end_frame_id);
     void AddLoopClosureConstraints();
     void MatchFeaturesBetweenOverlapedFrames(int src_id, int dst_id, std::vector<PointPair>& point_pairs);
-    // Eigen::Matrix4f CalcTransformation(const std::vector<PointPair>& point_pairs);
-
+    
     void SavePoseGraph(const std::string file_path);
 
 private:

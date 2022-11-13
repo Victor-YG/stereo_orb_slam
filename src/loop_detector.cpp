@@ -130,8 +130,6 @@ void LoopDetector::Query(const std::vector<cv::Mat>& features)
             m_edges.insert(m_edges.end(), m_potential_edges.begin(), m_potential_edges.end());
             m_potential_edges.clear();
             m_in_loop = true;
-
-            // TODO::add the logic to trigger pose graph optimization
         }
     }
 
@@ -145,8 +143,6 @@ void LoopDetector::Query(const std::vector<cv::Mat>& features)
         {
             m_edges.insert(m_edges.end(), m_potential_edges.begin(), m_potential_edges.end());
             m_in_loop = false;
-
-            // TODO::add the logic to trigger pose graph optimization
             m_optimizer.Optimize();
         }
 

@@ -40,7 +40,10 @@ public:
 
     static bool CalcTransformation(
         const std::vector<PointPair>& point_pairs, 
-        Eigen::Matrix4f& transformation);
+        std::vector<float>& weights,
+        Eigen::Matrix4f& transformation, 
+        std::vector<bool>& mask, 
+        std::vector<float>& losses);
 
     Eigen::Matrix4f Track(const cv::Mat& img_l, const cv::Mat& img_r);
 

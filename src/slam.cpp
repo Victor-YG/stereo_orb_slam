@@ -129,7 +129,7 @@ int main(int argc, char** argv)
         ld.Track(frame_data->descriptors);
 
         auto t2 = Timer::now();
-        std::cout << "[INFO]: Elapsed " << 
+        std::cout << "[INFO]: Elapsed " <<
         std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
         << " ms" << std::endl;
 
@@ -142,7 +142,7 @@ int main(int argc, char** argv)
         std::cout << "[INFO]: pose = " << std::endl;
         std::cout << curr_pose << std::endl;
     }
-    
+
     std::cout << "[INFO]: End of sequence." << std::endl;
 
     // final ba
