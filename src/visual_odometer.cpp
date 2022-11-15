@@ -2,6 +2,8 @@
 
 #include "math_utils.h"
 
+#include <fstream>
+
 
 VisualOdometer::VisualOdometer(
     std::vector<Frame*>& cam_frames,
@@ -434,4 +436,65 @@ void VisualOdometer::Update(
     new_frame->Descriptors(m_curr_container->descriptors);
     new_frame->Points(m_curr_container->points);
     m_cam_frames.emplace_back(new_frame);
+}
+
+void VisualOdometer::Dump(const std::string& folder)
+{
+    // save poses
+    std::ofstream output_file_poses;
+    output_file_poses.open(folder + "poses.txt");
+
+    if (!output_file_poses.is_open()) return;
+
+    output_file_poses << m_cam_frames.size() << "\n";
+    for (auto frames : m_cam_frames)
+    {
+        Eigen::Matrix4f pose = frames->GlobalPose();
+        output_file_poses << pose(0, 0) << " " << pose(0, 1) << " " << pose(0, 2) << " " << pose(0, 3) << " "
+                          << pose(1, 0) << " " << pose(1, 1) << " " << pose(1, 2) << " " << pose(1, 3) << " "
+                          << pose(2, 0) << " " << pose(2, 1) << " " << pose(2, 2) << " " << pose(2, 3) << " "
+                          << pose(3, 0) << " " << pose(3, 1) << " " << pose(3, 2) << " " << pose(3, 3) << "\n";
+    }
+    output_file_poses.close();
+
+    // save landmark points
+    std::ofstream output_file_points;
+    output_file_points.open(folder + "points.txt");
+
+    if (!output_file_points.is_open()) return;
+
+    output_file_points << m_ldm_points.size() << "\n";
+    for (auto points : m_ldm_points)
+    {
+        std::array<float, 3> position = points->Position();
+        output_file_points << position[0] << " " << position[1] << " " << position[2] << "\n";
+    }
+    output_file_points.close();
+
+    // save constraints
+    int n_obs = 0;
+    std::vector<std::vector<Observation>> observations;
+    for (auto frame : m_cam_frames)
+    {
+        std::vector<Observation> frame_obs = frame->Observations();
+        observations.emplace_back(frame_obs);
+        n_obs += frame_obs.size();
+    }
+
+    std::ofstream output_file_constraints;
+    output_file_constraints.open(folder + "constraints.txt");
+
+    if (!output_file_constraints.is_open()) return;
+
+    output_file_constraints << n_obs << "\n";
+    for (unsigned int i = 0; i < observations.size(); i++)
+    {
+        for (auto obs : observations[i])
+        {
+            // each row contains: frame_id point_id u_l v_l u_r v_r sigma
+            output_file_constraints << i << " " << obs.point_id << " "
+                << obs.u_l << " " << obs.v_l << " " << obs.u_r << " " << obs.v_r << " " << obs.sigma << "\n";
+        }
+    }
+    output_file_constraints.close();
 }

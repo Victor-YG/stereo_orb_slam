@@ -36,7 +36,7 @@ public:
 
         m_pose_glb = pose;
         Normalize(m_pose_glb);
-        
+
         // update relative pose
         Eigen::Matrix4f pose_prev = Eigen::Matrix4f::Identity();
         if (m_prev_frame)
@@ -72,7 +72,7 @@ public:
     void UpdatePose() { RelativePose(m_pose_rel); }
 
     void AddObservation(const Observation& obs) { m_observations.emplace_back(obs); }
-    const std::vector<Observation>& Observations() const { return m_observations; }
+    std::vector<Observation> Observations() const { return m_observations; }
 
     void Descriptors(const std::vector<cv::Mat>& descriptors) { m_descriptors = descriptors; }
     const std::vector<cv::Mat>& Descriptors() { return m_descriptors; }
@@ -102,7 +102,7 @@ public:
 
         // update observation
         m_observations[idx].point_id = point_id;
-        
+
         // assign new ref
         m_point_refs[idx] = point_ref;
         m_point_masks[idx] = first_observed;

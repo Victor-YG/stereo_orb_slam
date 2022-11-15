@@ -112,3 +112,35 @@ void LoadDatasetEuRoc(const std::string& folder, std::vector<ImagePair>& frames)
         }
     }
 }
+
+void LoadDatasetOther(const std::string& folder, std::vector<ImagePair>& frames)
+{
+    frames.clear();
+
+    std::vector<std::string> frames_l;
+    std::vector<std::string> frames_r;
+
+    const std::filesystem::path path{folder};
+    for (auto const& f : std::filesystem::directory_iterator{path})
+    {
+        std::string filepath = f.path();
+        if (filepath.find("l.png") != std::string::npos)
+        {
+            frames_l.emplace_back(filepath);
+        }
+        if (filepath.find("r.png") != std::string::npos)
+        {
+            frames_r.emplace_back(filepath);
+        }
+    }
+
+    assert(frames_l.size() == frames_r.size());
+
+    std::sort(frames_l.begin(), frames_l.end());
+    std::sort(frames_r.begin(), frames_r.end());
+
+    for (int i = 0; i < frames_l.size(); i++)
+    {
+        frames.emplace_back(std::make_pair(frames_l[i], frames_r[i]));
+    }
+}

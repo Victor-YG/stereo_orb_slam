@@ -16,7 +16,7 @@ class VisualOdometer
 {
 public:
     VisualOdometer(
-        std::vector<Frame*>& cam_frames, 
+        std::vector<Frame*>& cam_frames,
         std::vector<MapPoint*>& ldm_points);
     ~VisualOdometer();
 
@@ -26,49 +26,51 @@ public:
     FrameDataContainer* GetCurrFrameData();
 
     static void MatchPointsBetweenFrames(
-        Frame* src, Frame* dst, 
-        std::vector<PointPair>& point_pairs, 
+        Frame* src, Frame* dst,
+        std::vector<PointPair>& point_pairs,
         std::vector<cv::DMatch>& final_matches);
 
     static void MatchPoints(
-        const std::vector<cv::Mat>& descriptors_src, 
-        const std::vector<cv::Mat>& descriptors_dst, 
-        const std::vector<cv::Mat>& points_src, 
-        const std::vector<cv::Mat>& points_dst, 
-        std::vector<PointPair>& point_pairs, 
+        const std::vector<cv::Mat>& descriptors_src,
+        const std::vector<cv::Mat>& descriptors_dst,
+        const std::vector<cv::Mat>& points_src,
+        const std::vector<cv::Mat>& points_dst,
+        std::vector<PointPair>& point_pairs,
         std::vector<cv::DMatch>& final_matches);
 
     static bool CalcTransformation(
-        const std::vector<PointPair>& point_pairs, 
+        const std::vector<PointPair>& point_pairs,
         std::vector<float>& weights,
-        Eigen::Matrix4f& transformation, 
-        std::vector<bool>& mask, 
+        Eigen::Matrix4f& transformation,
+        std::vector<bool>& mask,
         std::vector<float>& losses);
 
     Eigen::Matrix4f Track(const cv::Mat& img_l, const cv::Mat& img_r);
 
+    void Dump(const std::string& folder);
+
 private:
     // detect and match features across stereo images
     void MatchFeaturesBetweenStereoImages(
-        const cv::Mat& img_1, 
-        const cv::Mat& img_2, 
-        std::vector<cv::KeyPoint>& keypoints_1, 
-        std::vector<cv::KeyPoint>& keypoints_2, 
-        std::vector<cv::Mat>& descriptor_1, 
+        const cv::Mat& img_1,
+        const cv::Mat& img_2,
+        std::vector<cv::KeyPoint>& keypoints_1,
+        std::vector<cv::KeyPoint>& keypoints_2,
+        std::vector<cv::Mat>& descriptor_1,
         std::vector<cv::Mat>& descriptor_2);
 
     // triangulate
     void TriangulateKeypoints(
-        const std::vector<cv::KeyPoint>& keypoints_1, 
-        const std::vector<cv::KeyPoint>& keypoints_2, 
+        const std::vector<cv::KeyPoint>& keypoints_1,
+        const std::vector<cv::KeyPoint>& keypoints_2,
         std::vector<cv::Mat>& points);
 
     void MatchFeaturesBetweenTemporalFrames(
-        std::vector<PointPair>& point_pairs, 
+        std::vector<PointPair>& point_pairs,
         std::vector<cv::DMatch>& final_matches);
 
     void Update(
-        const Eigen::Matrix4f& trans, 
+        const Eigen::Matrix4f& trans,
         const std::vector<cv::DMatch>& final_matches);
 
 private:

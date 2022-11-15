@@ -63,6 +63,7 @@ int main(int argc, char** argv)
     std::vector<ImagePair> frames;
     if      (FLAGS_dataset == "kitti") LoadDatasetKitti(FLAGS_folder, frames);
     else if (FLAGS_dataset == "EuRoc") LoadDatasetEuRoc(FLAGS_folder, frames);
+    else if (FLAGS_dataset == "other") LoadDatasetOther(FLAGS_folder, frames);
     else
     {
         std::cerr << "[FAIL]: Unknown dataset '" << FLAGS_dataset << "' provided.\n";

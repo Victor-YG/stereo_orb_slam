@@ -55,6 +55,7 @@ int main(int argc, char** argv)
     std::vector<ImagePair> frames;
     if      (FLAGS_dataset == "kitti") LoadDatasetKitti(FLAGS_folder, frames);
     else if (FLAGS_dataset == "EuRoc") LoadDatasetEuRoc(FLAGS_folder, frames);
+    else if (FLAGS_dataset == "other") LoadDatasetOther(FLAGS_folder, frames);
     else
     {
         std::cerr << "[FAIL]: Unknown dataset '" << FLAGS_dataset << "' provided.\n";
@@ -76,9 +77,8 @@ int main(int argc, char** argv)
     // main loop
     int start = 0;
     int N = frames.size();
-    N = 50;
 
-    namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
+    namedWindow("Stereo",   cv::WINDOW_AUTOSIZE);
     namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
 
     for (int i = start; i < N; i += 1)
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
         Eigen::Matrix4f trans = vo.Track(img_l, img_r);
 
         auto t2 = Timer::now();
-        std::cout << "[INFO]: Elapsed " << 
+        std::cout << "[INFO]: Elapsed " <<
         std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count()
         << " ms" << std::endl;
 
@@ -108,9 +108,12 @@ int main(int argc, char** argv)
         std::cout << "[INFO]: pose = " << std::endl;
         std::cout << curr_pose << std::endl;
     }
-    
+
     cv::destroyAllWindows();
     std::cout << "[INFO]: End of sequence." << std::endl;
+
+    // save optimization problem
+    vo.Dump("./");
 
     // save results
     SavePosesToPLY("./waypoints.ply", cam_frames);
