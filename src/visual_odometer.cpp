@@ -17,7 +17,8 @@ VisualOdometer::VisualOdometer(
     m_prev_container = &m_container_1;
     m_curr_container = &m_container_2;
 
-    m_solver = new RANSAC::Solver<PointPair, Eigen::Matrix4f>(&m_trans_model, 100);
+    // m_solver = new RANSAC::Solver<PointPair, Eigen::Matrix4f>(&m_trans_model, 100);
+    m_solver = new RANSAC::Solver<ObservationPair, Eigen::Matrix4f>(&m_stereo_reprojection_model, 100);
     m_pose = Eigen::Matrix4f::Identity(4, 4);
 
     cv::namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
@@ -36,6 +37,9 @@ void VisualOdometer::Camera(CameraModel::Stereo* camera)
 {
     m_camera = camera;
     m_max_distance = m_camera->MaxSensibleDistance();
+
+    // extra stuff
+    m_stereo_reprojection_model.SetCameraProjection();
 }
 
 CameraModel::Stereo* VisualOdometer::Camera() const
@@ -110,15 +114,27 @@ void VisualOdometer::MatchPoints(
     }
 }
 
-bool VisualOdometer::CalcTransformation(
-    const std::vector<PointPair>& point_pairs,
+// bool VisualOdometer::CalcTransformation(
+//     const std::vector<PointPair>& point_pairs,
+//     std::vector<float>& weights,
+//     Eigen::Matrix4f& transformation,
+//     std::vector<bool>& mask,
+//     std::vector<float>& losses)
+// {
+//     if (point_pairs.size() < 5) return false;
+//     transformation = m_solver->Solve(point_pairs, weights, mask, losses);
+//     return true;
+// }
+
+bool VisualOdometer::CalcTransformation2(
+    const std::vector<ObservationPair>& obs_pairs,
     std::vector<float>& weights,
     Eigen::Matrix4f& transformation,
     std::vector<bool>& mask,
     std::vector<float>& losses)
 {
-    if (point_pairs.size() < 10) return false;
-    transformation = m_solver->Solve(point_pairs, weights, mask, losses);
+    if (obs_pairs.size() < 5) return false;
+    transformation = m_solver->Solve(obs_pairs, weights, mask, losses);
     return true;
 }
 
@@ -150,14 +166,14 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
         // TODO::change the logic here:
         // 1. keep both the point and the descriptor
         // 2. but indicates this point is too far
-        // 3. or reject far point when creating the point_pairs before CalcTransformation
+        // 3. or reject far point when creating the point_pairs before CalcTransformation2
 
         // within max range
         cv::Mat point = points[i];
         if (abs(point.at<float>(2)) < m_max_distance)
         {
             m_curr_container->AddKeyPoints(keypoints_l[i], keypoints_r[i]);
-            m_curr_container->AddDescriptor(descriptors_l[i]);
+            m_curr_container->AddDescriptors(descriptors_l[i], descriptors_r[i]);
             m_curr_container->AddPoint(point);
         }
         else
@@ -176,12 +192,27 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
         // temporary matching
         MatchFeaturesBetweenTemporalFrames(point_pairs, matches);
 
+        std::vector<ObservationPair> obs_pairs;
+        for (int i = 0; i < matches.size(); i++)
+        {
+            unsigned int idx_curr = matches[i].queryIdx;
+            unsigned int idx_prev = matches[i].trainIdx;
+            cv::KeyPoint kp_curr_l = m_curr_container->keypoints_l[idx_curr];
+            cv::KeyPoint kp_curr_r = m_curr_container->keypoints_r[idx_curr];
+            cv::KeyPoint kp_prev_l = m_prev_container->keypoints_l[idx_prev];
+            cv::KeyPoint kp_prev_r = m_prev_container->keypoints_r[idx_prev];
+            Eigen::Vector4f obs_curr = Eigen::Vector4f(kp_curr_l.pt.x, kp_curr_l.pt.y, kp_curr_r.pt.x, kp_curr_r.pt.y);
+            Eigen::Vector4f obs_prev = Eigen::Vector4f(kp_prev_l.pt.x, kp_prev_l.pt.y, kp_prev_r.pt.x, kp_prev_r.pt.y);
+            obs_pairs.emplace_back(std::make_pair(obs_curr, obs_prev));
+        }
+
         // pose estimation
         unsigned int N = point_pairs.size();
         std::vector<bool> mask(N, false);
         std::vector<float> weights(N, 1.0);
         std::vector<float> losses(N, 0.0);
-        m_success = CalcTransformation(point_pairs, weights, trans, mask, losses);
+        // m_success = CalcTransformation(point_pairs, weights, trans, mask, losses);
+        m_success = CalcTransformation2(obs_pairs, weights, trans, mask, losses);
 
         // filter matches
         for (int i = 0; i < matches.size(); i++)
@@ -195,6 +226,7 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
 
     // update pose; add frames, landmarks, and observations
     Update(trans, final_matches);
+    // Update(trans, matches);
 
     // update stored information
     if (m_success)
@@ -204,6 +236,10 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
         m_prev_container->Flush();
         m_prev_container = m_curr_container;
         m_curr_container = tmp_container;
+    }
+    else
+    {
+        m_curr_container->Flush();
     }
 
     m_initialized = true;
@@ -311,13 +347,35 @@ void VisualOdometer::MatchFeaturesBetweenTemporalFrames(
     if (!m_initialized) return;
 
     // match points between curr and prev frames
-    std::vector<cv::Mat> des_curr = m_curr_container->descriptors;
-    std::vector<cv::Mat> des_prev = m_prev_container->descriptors;
+    std::vector<cv::Mat> des_l_curr = m_curr_container->descriptors_l;
+    std::vector<cv::Mat> des_r_curr = m_curr_container->descriptors_r;
+    std::vector<cv::Mat> des_l_prev = m_prev_container->descriptors_l;
+    std::vector<cv::Mat> des_r_prev = m_prev_container->descriptors_r;
+
     std::vector<cv::Mat> points_curr = m_curr_container->points;
     std::vector<cv::Mat> points_prev = m_prev_container->points;
 
-    MatchPoints(des_prev, des_curr, points_prev, points_curr, point_pairs, final_matches);
-    std::cout << "[INFO]: Matched " << final_matches.size() << " points for tracking." << std::endl;
+    std::vector<cv::DMatch> matches;
+
+    // match left to left
+    MatchPoints(des_l_prev, des_l_curr, points_prev, points_curr, point_pairs, final_matches);
+    std::cout << "[INFO]: Initially matched " << final_matches.size() << " points for tracking." << std::endl;
+
+    // // match right to right
+    // MatchPoints(des_r_prev, des_r_curr, points_prev, points_curr, point_pairs, matches);
+    // final_matches.insert(final_matches.end(), matches.begin(), matches.end());
+    // matches.clear();
+
+    // // match left to right
+    // MatchPoints(des_l_prev, des_r_curr, points_prev, points_curr, point_pairs, matches);
+    // final_matches.insert(final_matches.end(), matches.begin(), matches.end());
+    // matches.clear();
+
+    // // match right to left
+    // MatchPoints(des_r_prev, des_l_curr, points_prev, points_curr, point_pairs, matches);
+    // final_matches.insert(final_matches.end(), matches.begin(), matches.end());
+
+    std::cout << "[INFO]: Finally matched " << final_matches.size() << " points for tracking." << std::endl;
 
     cv::Mat img_features;
     cv::drawMatches(
@@ -342,7 +400,8 @@ void VisualOdometer::Update(
             // add points
             cv::Mat pt = m_curr_container->points[i];
             MapPoint* mp = new MapPoint(pt.at<float>(0), pt.at<float>(1), pt.at<float>(2));
-            mp->AddDescriptor(m_curr_container->descriptors[i]);
+            mp->AddDescriptor(m_curr_container->descriptors_l[i]);
+            mp->AddDescriptor(m_curr_container->descriptors_r[i]);
 
             unsigned int point_id = m_ldm_points.size();
             m_ldm_points.emplace_back(mp);
@@ -356,7 +415,7 @@ void VisualOdometer::Update(
             new_frame->AddObservation(obs);
         }
 
-        new_frame->Descriptors(m_curr_container->descriptors);
+        new_frame->Descriptors(m_curr_container->descriptors_l);
         new_frame->Points(m_curr_container->points);
         m_cam_frames.emplace_back(new_frame);
         return;
@@ -381,7 +440,8 @@ void VisualOdometer::Update(
             MapPoint* mp = new MapPoint(pt.at<float>(0), pt.at<float>(1), pt.at<float>(2));
 
             mp->Transform(new_frame->GlobalPose()); // to global ref. frame
-            mp->AddDescriptor(m_curr_container->descriptors[idx]);
+            mp->AddDescriptor(m_curr_container->descriptors_l[idx]);
+            mp->AddDescriptor(m_curr_container->descriptors_r[idx]);
             new_frame->AddMapPoints(mp, true);
 
             unsigned int point_id = m_ldm_points.size();
@@ -399,7 +459,8 @@ void VisualOdometer::Update(
         int global_idx = m_prev_container->point_global_idx[idx_prev];
         MapPoint* mp = m_ldm_points[global_idx];
 
-        mp->AddDescriptor(m_curr_container->descriptors[idx]);
+        mp->AddDescriptor(m_curr_container->descriptors_l[idx]);
+        mp->AddDescriptor(m_curr_container->descriptors_r[idx]);
         m_curr_container->AddGlobalIndex(global_idx);
         new_frame->AddMapPoints(mp, false);
 
@@ -419,7 +480,8 @@ void VisualOdometer::Update(
         MapPoint* mp = new MapPoint(pt.at<float>(0), pt.at<float>(1), pt.at<float>(2));
 
         mp->Transform(new_frame->GlobalPose()); // to global ref. frame
-        mp->AddDescriptor(m_curr_container->descriptors[i]);
+        mp->AddDescriptor(m_curr_container->descriptors_l[i]);
+        mp->AddDescriptor(m_curr_container->descriptors_r[i]);
         new_frame->AddMapPoints(mp, true);
 
         unsigned int point_id = m_ldm_points.size();
@@ -433,7 +495,7 @@ void VisualOdometer::Update(
         new_frame->AddObservation(obs);
     }
 
-    new_frame->Descriptors(m_curr_container->descriptors);
+    new_frame->Descriptors(m_curr_container->descriptors_l);
     new_frame->Points(m_curr_container->points);
     m_cam_frames.emplace_back(new_frame);
 }

@@ -10,7 +10,7 @@ BundleAdjuster::BundleAdjuster(std::vector<Frame*>& cam_frames, std::vector<MapP
     m_cam_frames(cam_frames), m_ldm_points(ldm_points)
 {
     // setup optimizer options
-    m_options.max_num_iterations = 10;
+    m_options.max_num_iterations = 500;
     m_options.minimizer_progress_to_stdout = true;
     m_options.num_threads = 1;
     m_options.eta = 1e-2;
@@ -30,7 +30,7 @@ BundleAdjuster::BundleAdjuster(std::vector<Frame*>& cam_frames, std::vector<MapP
     m_options.use_explicit_schur_complement = false;
     m_options.use_mixed_precision_solves = false;
     m_options.max_num_refinement_iterations = 10;
-    
+
     m_options.gradient_tolerance = 1e-16;
     m_options.function_tolerance = 1e-16;
 }
@@ -99,11 +99,11 @@ void BundleAdjuster::Optimize(unsigned int start_frame_id, unsigned int end_fram
             ceres::LossFunction* loss_func = new ceres::HuberLoss(1.0);
 
             problem.AddResidualBlock(cost_func, loss_func, &camera_poses[camera_poses.size() - 1][0], &points[pt_idx][0]);
-            
+
             for (int k = 0; k < 3; k++)
             {
-                problem.SetParameterLowerBound(&points[pt_idx][0], k, -1000);
-                problem.SetParameterUpperBound(&points[pt_idx][0], k,  1000);
+                problem.SetParameterLowerBound(&points[pt_idx][0], k, -10000);
+                problem.SetParameterUpperBound(&points[pt_idx][0], k,  10000);
             }
         }
     }

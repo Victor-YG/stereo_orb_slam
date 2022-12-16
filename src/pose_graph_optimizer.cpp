@@ -4,11 +4,11 @@
 
 
 PoseGraphOptimizer::PoseGraphOptimizer(
-    BundleAdjuster& ba, 
-    std::vector<Frame*>& cam_frames, 
+    BundleAdjuster& ba,
+    std::vector<Frame*>& cam_frames,
     std::vector<PoseGraphEdge>& edges):
-    m_ba(ba), 
-    m_cam_frames(cam_frames), 
+    m_ba(ba),
+    m_cam_frames(cam_frames),
     m_loop_edges(edges)
 {
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
@@ -34,7 +34,7 @@ PoseGraphOptimizer::~PoseGraphOptimizer()
 void PoseGraphOptimizer::Optimize()
 {
     // determine range of camera frame
-    unsigned int start_id = m_cam_frames.size() - 1;
+    unsigned int start_id = m_cam_frames.size();
     unsigned int   end_id = 0;
 
     if (m_loop_edges.size() == 0)
@@ -76,7 +76,7 @@ void PoseGraphOptimizer::Optimize()
 
         Eigen::Quaternionf q(z[6], z[3], z[4], z[5]);
         Eigen::Matrix4f pose = Eigen::Matrix4f::Identity();
-        
+
         pose.block<3, 3>(0, 0) = q.toRotationMatrix();
         pose(0, 3) = z[0];
         pose(1, 3) = z[1];
@@ -114,7 +114,7 @@ void PoseGraphOptimizer::AddOdometryConstraints(unsigned int start_frame_id, uns
 
     v_SE3->setId(start_frame_id);
     v_SE3->setEstimateDataImpl(&z[0]);
-    
+
     if (start_frame_id == 0)
     {
         v_SE3->setFixed(true);
@@ -141,7 +141,7 @@ void PoseGraphOptimizer::AddOdometryConstraints(unsigned int start_frame_id, uns
 
         v_SE3->setId(i);
         v_SE3->setEstimateDataImpl(&z[0]);
-        
+
         m_optimizer.addVertex(v_SE3);
         m_vertices.emplace_back(v_SE3);
 
@@ -153,7 +153,7 @@ void PoseGraphOptimizer::AddOdometryConstraints(unsigned int start_frame_id, uns
         e_SE3->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
             m_optimizer.vertices().find(i)->second)
         );
-        
+
         q = Eigen::Quaternionf(pose_rel.block<3, 3>(0, 0));
         t = Eigen::Vector3f(pose_rel.block<3, 1>(0, 3));
         z[0] = t(0), z[1] = t(1), z[2] = t(2);
@@ -181,12 +181,13 @@ void PoseGraphOptimizer::AddLoopClosureConstraints()
         std::vector<PointPair> point_pairs;
         MatchFeaturesBetweenOverlapedFrames(id_1, id_2, point_pairs);
         Eigen::Matrix4f trans = Eigen::Matrix4f::Identity();
-        
+
         unsigned int N = point_pairs.size();
         std::vector<bool> mask(N, false);
         std::vector<float> weights(N, 1.0);
         std::vector<float> losses(N, 0.0);
-        bool success = VisualOdometer::CalcTransformation(point_pairs, weights, trans, mask, losses);
+        // bool success = VisualOdometer::CalcTransformation(point_pairs, weights, trans, mask, losses);
+        bool success = false;
         if (!success) continue;
 
         g2o::EdgeSE3* e_SE3 = new g2o::EdgeSE3();
@@ -196,7 +197,7 @@ void PoseGraphOptimizer::AddLoopClosureConstraints()
         e_SE3->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(
             m_optimizer.vertices().find(id_2)->second)
         );
-        
+
         Eigen::Quaternionf q(trans.block<3, 3>(0, 0));
         Eigen::Vector3f t(trans.block<3, 1>(0, 3));
         std::array<double, 7> z;
@@ -232,7 +233,7 @@ void PoseGraphOptimizer::MatchFeaturesBetweenOverlapedFrames(int src_id, int dst
     {
         unsigned int idx_src = match.trainIdx;
         unsigned int idx_dst = match.queryIdx;
-        
+
         unsigned int point_id = frame_src->Observations()[idx_src].point_id;
         MapPoint* mp = frame_src->MapPointRef(idx_src);
         frame_dst->UpdateMapPoint(idx_dst, point_id, mp, false);
@@ -258,7 +259,7 @@ void PoseGraphOptimizer::SavePoseGraph(const std::string file_path)
         std::array<double, 7> data;
         vertex->getEstimateData(&data[0]);
 
-        output << data[0] << " " << data[1] << " " << data[2] << " " << data[3] << " " 
+        output << data[0] << " " << data[1] << " " << data[2] << " " << data[3] << " "
                << data[4] << " " << data[5] << " " << data[6] << "\n";
     }
 
@@ -273,7 +274,7 @@ void PoseGraphOptimizer::SavePoseGraph(const std::string file_path)
         int dst_id = edge->vertex(1)->id();
 
         output <<  src_id << " " <<  dst_id << " "
-               << data[0] << " " << data[1] << " " << data[2] << " " << data[3] << " " 
+               << data[0] << " " << data[1] << " " << data[2] << " " << data[3] << " "
                << data[4] << " " << data[5] << " " << data[6] << "\n";
     }
 }

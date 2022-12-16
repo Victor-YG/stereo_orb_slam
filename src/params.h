@@ -12,16 +12,16 @@ const unsigned int QUERY_SIZE_FROM_BOW_DATABASE = 4;
 const unsigned int THRES_ADJACENT_FRAME = 5;
 
 // threshold in frame index difference to dtermine whether two frames are distant
-const unsigned int THRES_DISTANCE_FRAME = 50;
+const unsigned int THRES_DISTANCE_FRAME = 5;
 
 // how many consecutive frames around target frame to use to determine the match probability
 const unsigned int SCORE_WINDOW = 5;
 
 // threshold in probability when a distance frame is a good match
-const float THRES_MATCH_PROBABILITY = 0.5;
+const float THRES_MATCH_PROBABILITY = 0.75;
 
 // threshold in probability when a loop is detected
-const float THRES_IS_LOOP = 0.9;
+const float THRES_IS_LOOP = 0.5;
 
 // threshold in probability when a possible loop is denied
 const float THRES_NOT_LOOP = 0.1;

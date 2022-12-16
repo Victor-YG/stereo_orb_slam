@@ -16,11 +16,11 @@
 // }
 
 LoopDetector::LoopDetector(
-    PoseGraphOptimizer& optimizer, 
-    std::vector<Frame*>& cam_frames, 
+    PoseGraphOptimizer& optimizer,
+    std::vector<Frame*>& cam_frames,
     std::vector<PoseGraphEdge>& edges):
-    m_optimizer(optimizer), 
-    m_edges(edges), 
+    m_optimizer(optimizer),
+    m_edges(edges),
     m_cam_frames(cam_frames)
 {
     // ensure loop can be detected
@@ -42,8 +42,8 @@ LoopDetector::~LoopDetector()
 
     for (int i = 0; i < m_matches.size(); i++)
     {
-        output << "frame " << i << "matches with frame " << m_matches[i].first 
-               << " at score " << m_matches[i].second 
+        output << "frame " << i << "matches with frame " << m_matches[i].first
+               << " at score " << m_matches[i].second
                << "probability = " << m_probabilities[i] << std::endl;
     }
 }
@@ -55,102 +55,24 @@ void LoopDetector::Track(const std::vector<cv::Mat>& features)
 
 void LoopDetector::Query(const std::vector<cv::Mat>& features)
 {
-    unsigned int curr_frame_id = m_cam_frames.size();
+    unsigned int curr_frame_id = m_cam_frames.size() - 1;
 
     DBoW2::QueryResults results;
     m_database.query(features, results, QUERY_SIZE_FROM_BOW_DATABASE);
 
-    // TODO::remove this debug code
-    {
-        if (results.size() == 0)
-        {
-            m_matches.emplace_back(std::make_pair(-1, 0));
-            return;
-        }
-        std::cout << "Searching for Image. " << results << std::endl;
-
-        for (int i = 0; i < results.size(); i++)
-        {
-            if (results[i] > 0.75)
-            {
-                std::cout << "good match found in database. " << std::endl;
-            }
-        }
-
-        m_matches.emplace_back(std::make_pair(results[0].Id, results[0].Score));
-    }
-
-    // track score of adjacent frame
     for (auto result : results)
     {
-        if (curr_frame_id - result.Id < THRES_ADJACENT_FRAME)
+        if (curr_frame_id - result.Id < THRES_DISTANCE_FRAME) continue;
+        float s = ScoreProbability(result.Score);
+        float p = MatchProbability(result.Id, result.Score);
+
+        // add potential pose graph constraint
+        if (p > THRES_MATCH_PROBABILITY)
         {
-            m_scores.emplace_back(result.Score);
-            break;
+            std::cout << "[INFO]: Loop edge detected." << std::endl;
+            m_edges.emplace_back(std::make_pair(result.Id, curr_frame_id));
         }
     }
-
-    // detect match in distance frame
-    bool matched = false;
-    for (auto result : results)
-    {
-        if (curr_frame_id - result.Id > THRES_DISTANCE_FRAME)
-        {
-            float s = ScoreProbability(result.Score);
-            float p = MatchProbability(result.Id, result.Score);
-
-            // add potential pose graph constraint
-            if (p > THRES_MATCH_PROBABILITY)
-            {
-                // p(in_loop | s = score) = p(s = score | in_loop) * p(in_loop) / p(s = score)
-                m_loop_probability = m_loop_probability * p / s;
-                m_loop_probability = std::min(m_loop_probability, MAX_LOOP_PROBABILITY);
-
-                m_potential_edges.emplace_back(std::make_pair(result.Id, curr_frame_id));
-                matched = true;
-                break;
-            }
-        }
-    }
-
-    if (matched == false)
-    {
-        m_loop_probability *= DECAY_RATE;
-        m_loop_probability = std::max(m_loop_probability, MIN_LOOP_PROBABILITY);
-    }
-
-    // detected a loop
-    if (m_loop_probability > THRES_IS_LOOP)
-    {
-        std::cout << "[INFO]: Loop detected." << std::endl;
-
-        // add queued constraints when first detecting the loop
-        if (m_in_loop == false)
-        {
-            m_edges.insert(m_edges.end(), m_potential_edges.begin(), m_potential_edges.end());
-            m_potential_edges.clear();
-            m_in_loop = true;
-        }
-    }
-
-    // denied or exit a loop
-    if (m_loop_probability < THRES_NOT_LOOP)
-    {
-        std::cout << "[INFO]: Loop denied." << std::endl;
-
-        // add remaining constraints when loop ended
-        if (m_in_loop == true)
-        {
-            m_edges.insert(m_edges.end(), m_potential_edges.begin(), m_potential_edges.end());
-            m_in_loop = false;
-            m_optimizer.Optimize();
-        }
-
-        // always clear queued constraints if loop is denied
-        m_potential_edges.clear();
-    }
-
-    m_probabilities.emplace_back(m_loop_probability);
 }
 
 void LoopDetector::LoadVocabulary(const std::string& file_path)

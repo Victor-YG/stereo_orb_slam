@@ -105,11 +105,11 @@ int main(int argc, char** argv)
     int N = frames.size();
     // N = 10;
 
-    for (int i = start; i < N; i += 1)
+    for (int i = start; i < N; i++)
     {
         // read images
         std::cout << "[INFO]: frame #" << i << ": " << frames[i].first << std::endl;
-        cv::Mat img_l = cv::imread(frames[i].first, cv::IMREAD_GRAYSCALE);
+        cv::Mat img_l = cv::imread(frames[i].first,  cv::IMREAD_GRAYSCALE);
         cv::Mat img_r = cv::imread(frames[i].second, cv::IMREAD_GRAYSCALE);
 
         cv::waitKey(10);
@@ -120,14 +120,20 @@ int main(int argc, char** argv)
 
         // local BA
         unsigned int n = cam_frames.size();
-        if (n != 0 && n % FLAGS_refine_interval == 0)
+        if (n > 1)
         {
-            ba.Optimize(std::max(0, int(n - 2 * FLAGS_refine_interval)), n);
+            ba.Optimize(n - 1, n);
         }
 
+        // unsigned int n = cam_frames.size();
+        // if (n != 0 && n % FLAGS_refine_interval == 0)
+        // {
+        //     ba.Optimize(std::max(0, int(n - 2 * FLAGS_refine_interval)), n);
+        // }
+
         FrameDataContainer* frame_data = vo.GetCurrFrameData();
-        ld.Query(frame_data->descriptors);
-        ld.Track(frame_data->descriptors);
+        ld.Query(frame_data->descriptors_l);
+        ld.Track(frame_data->descriptors_l);
 
         auto t2 = Timer::now();
         std::cout << "[INFO]: Elapsed " <<
@@ -146,8 +152,14 @@ int main(int argc, char** argv)
 
     std::cout << "[INFO]: End of sequence." << std::endl;
 
+    // pose graph optimization
+    po.Optimize();
+
     // final ba
     ba.Optimize(0, cam_frames.size() - 1);
+
+    // save optimization problem
+    vo.Dump("./");
 
     // save results
     std::string suffix = FLAGS_output_suffix;

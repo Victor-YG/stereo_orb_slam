@@ -5,6 +5,7 @@
 #include "camera_frame.h"
 #include "observation.h"
 #include "absolute_orientation.h"
+#include "stereo_reprojection.h"
 #include "frame_data_container.h"
 
 #include <Eigen/Geometry>
@@ -38,8 +39,15 @@ public:
         std::vector<PointPair>& point_pairs,
         std::vector<cv::DMatch>& final_matches);
 
-    static bool CalcTransformation(
-        const std::vector<PointPair>& point_pairs,
+    // static bool CalcTransformation(
+    //     const std::vector<PointPair>& point_pairs,
+    //     std::vector<float>& weights,
+    //     Eigen::Matrix4f& transformation,
+    //     std::vector<bool>& mask,
+    //     std::vector<float>& losses);
+
+    static bool CalcTransformation2(
+        const std::vector<ObservationPair>& obs_pairs,
         std::vector<float>& weights,
         Eigen::Matrix4f& transformation,
         std::vector<bool>& mask,
@@ -79,8 +87,11 @@ private:
     static inline cv::Ptr<cv::DescriptorMatcher>    m_matcher;
 
     // transformation estimation
-    static inline RANSAC::Solver<PointPair, Eigen::Matrix4f>* m_solver;
-    static inline PointSetTransModel                m_trans_model;
+    // static inline RANSAC::Solver<PointPair, Eigen::Matrix4f>* m_solver;
+    // static inline PointSetTransModel                m_trans_model;
+
+    static inline RANSAC::Solver<ObservationPair, Eigen::Matrix4f>* m_solver;
+    static inline StereoTransModel m_stereo_reprojection_model;
 
     // frame data ref
     FrameDataContainer*                 m_curr_container;
