@@ -20,8 +20,9 @@ VisualOdometer::VisualOdometer(
     m_solver = new RANSAC::Solver<PointPair, Eigen::Matrix4f>(&m_trans_model, 100);
     m_pose = Eigen::Matrix4f::Identity(4, 4);
 
-    cv::namedWindow("Stereo", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Stereo",   cv::WINDOW_AUTOSIZE);
     cv::namedWindow("Temporal", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Tracking", cv::WINDOW_AUTOSIZE);
 }
 
 VisualOdometer::~VisualOdometer()
@@ -30,6 +31,7 @@ VisualOdometer::~VisualOdometer()
 
     cv::destroyWindow("Stereo");
     cv::destroyWindow("Temporal");
+    cv::destroyWindow("Tracking");
 }
 
 void VisualOdometer::Camera(CameraModel::Stereo* camera)
@@ -192,6 +194,19 @@ Eigen::Matrix4f VisualOdometer::Track(const cv::Mat& img_l, const cv::Mat& img_r
             }
         }
     }
+
+    // highlight tracked features
+    std::vector<cv::KeyPoint> keypoints_l_tracked;
+    for (int i = 0; i < final_matches.size(); i++)
+    {
+        unsigned int idx = final_matches[i].queryIdx;
+        keypoints_l_tracked.emplace_back(keypoints_l[idx]);
+    }
+
+    cv::Mat img_tracking;
+    cv::drawKeypoints(img_l, keypoints_l, img_tracking, cv::Scalar(150, 150, 0));
+    cv::drawKeypoints(img_tracking, keypoints_l_tracked, img_tracking, cv::Scalar(0, 255, 0));
+    cv::imshow("Tracking", img_tracking);
 
     // update pose; add frames, landmarks, and observations
     Update(trans, final_matches);
