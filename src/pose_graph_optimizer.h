@@ -3,7 +3,7 @@
 #include "pose_graph.h"
 #include "camera_frame.h"
 #include "bundle_adjuster.h"
-#include "absolute_orientation.h"
+#include "stereo_reprojection.h"
 
 #include <vector>
 
@@ -19,8 +19,8 @@ class PoseGraphOptimizer
 {
 public:
     PoseGraphOptimizer(
-        BundleAdjuster& ba, 
-        std::vector<Frame*>& cam_frames, 
+        BundleAdjuster& ba,
+        std::vector<Frame*>& cam_frames,
         std::vector<PoseGraphEdge>& edges);
 
     ~PoseGraphOptimizer();
@@ -30,8 +30,8 @@ public:
 private:
     void AddOdometryConstraints(unsigned int start_frame_id, unsigned int end_frame_id);
     void AddLoopClosureConstraints();
-    void MatchFeaturesBetweenOverlapedFrames(int src_id, int dst_id, std::vector<PointPair>& point_pairs);
-    
+    void MatchFeaturesBetweenOverlapedFrames(int src_id, int dst_id, std::vector<ObservationPair>& point_pairs);
+
     void SavePoseGraph(const std::string file_path);
 
 private:
@@ -43,7 +43,7 @@ private:
     g2o::RobustKernelHuber              m_kernel;
     std::vector<g2o::VertexSE3*>        m_vertices;
     std::vector<g2o::EdgeSE3*>          m_edges;
-    
+
     unsigned int                        m_last_id = 0;
 
     Eigen::Matrix<double, 6, 6>         m_information;

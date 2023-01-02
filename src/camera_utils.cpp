@@ -18,6 +18,7 @@ CameraModel::Stereo* LoadCamera(const std::string& file_path)
     std::string type;
     float fx_l, fy_l, cx_l, cy_l, k1_l, k2_l, p1_l, p2_l, k3_l;
     float fx_r, fy_r, cx_r, cy_r, k1_r, k2_r, p1_r, p2_r, k3_r;
+    float b;
     float d_l[5], d_r[5];
     float pose_l[16], pose_r[16];
 
@@ -41,6 +42,7 @@ CameraModel::Stereo* LoadCamera(const std::string& file_path)
         else if (key == "fy_r") fy_r = stod(value);
         else if (key == "cx_r") cx_r = stod(value);
         else if (key == "cy_r") cy_r = stod(value);
+        else if (key == "b") b = stod(value);
         else if (key == "d_l") ReadDistortionCoef(value, d_l);
         else if (key == "d_r") ReadDistortionCoef(value, d_r);
         else if (key == "T_l") ReadTransformation(value, pose_l);
@@ -64,7 +66,7 @@ CameraModel::Stereo* LoadCamera(const std::string& file_path)
 void ReadDistortionCoef(const std::string& value, float coef[5])
 {
     std::stringstream ss(value);
-    
+
     for (int i = 0; i < 5; i++)
     {
         ss >> coef[i];
@@ -74,7 +76,7 @@ void ReadDistortionCoef(const std::string& value, float coef[5])
 void ReadTransformation(const std::string& value, float trans[16])
 {
     std::stringstream ss(value);
-    
+
     for (int i = 0; i < 16; i++)
     {
         ss >> trans[i];

@@ -5,6 +5,7 @@
 #include "camera_frame.h"
 #include "observation.h"
 #include "absolute_orientation.h"
+#include "stereo_reprojection.h"
 #include "frame_data_container.h"
 
 #include <Eigen/Geometry>
@@ -25,21 +26,13 @@ public:
 
     FrameDataContainer* GetCurrFrameData();
 
-    static void MatchPointsBetweenFrames(
-        Frame* src, Frame* dst,
-        std::vector<PointPair>& point_pairs,
-        std::vector<cv::DMatch>& final_matches);
-
     static void MatchPoints(
         const std::vector<cv::Mat>& descriptors_src,
         const std::vector<cv::Mat>& descriptors_dst,
-        const std::vector<cv::Mat>& points_src,
-        const std::vector<cv::Mat>& points_dst,
-        std::vector<PointPair>& point_pairs,
         std::vector<cv::DMatch>& final_matches);
 
     static bool CalcTransformation(
-        const std::vector<PointPair>& point_pairs,
+        const std::vector<ObservationPair>& obs_pairs,
         std::vector<float>& weights,
         Eigen::Matrix4f& transformation,
         std::vector<bool>& mask,
@@ -65,9 +58,7 @@ private:
         const std::vector<cv::KeyPoint>& keypoints_2,
         std::vector<cv::Mat>& points);
 
-    void MatchFeaturesBetweenTemporalFrames(
-        std::vector<PointPair>& point_pairs,
-        std::vector<cv::DMatch>& final_matches);
+    void MatchFeaturesBetweenTemporalFrames(std::vector<cv::DMatch>& final_matches);
 
     void Update(
         const Eigen::Matrix4f& trans,
@@ -79,8 +70,8 @@ private:
     static inline cv::Ptr<cv::DescriptorMatcher>    m_matcher;
 
     // transformation estimation
-    static inline RANSAC::Solver<PointPair, Eigen::Matrix4f>* m_solver;
-    static inline PointSetTransModel                m_trans_model;
+    static inline RANSAC::Solver<ObservationPair, Eigen::Matrix4f>* m_solver;
+    static inline StereoTransModel m_stereo_reprojection_model;
 
     // frame data ref
     FrameDataContainer*                 m_curr_container;
