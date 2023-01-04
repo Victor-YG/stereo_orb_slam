@@ -1,5 +1,6 @@
 #include "visual_odometer.h"
 
+#include "params.h"
 #include "math_utils.h"
 
 #include <fstream>
@@ -11,17 +12,18 @@ VisualOdometer::VisualOdometer(
     m_cam_frames(cam_frames),
     m_ldm_points(ldm_points)
 {
-    m_detector = cv::ORB::create(1000);
+    m_detector = cv::ORB::create(NUM_FEATURES);
     m_matcher = cv::DescriptorMatcher::create("BruteForce-Hamming");
 
     m_prev_container = &m_container_1;
     m_curr_container = &m_container_2;
 
-    m_solver = new RANSAC::Solver<ObservationPair, Eigen::Matrix4f>(&m_stereo_reprojection_model, 100);
+    m_solver = new RANSAC::Solver<ObservationPair, Eigen::Matrix4f>(&m_stereo_reprojection_model);
     RANSAC::Option options;
-    options.m_final_model_fitting = false;
-    options.m_early_termination = false;
-    options.m_concensus_ratio = 0.8;
+    options.max_iterations = RANSAC_MAX_ITERATION;
+    options.final_model_fitting = RANSAC_FINAL_MODEL_FITTING;
+    options.early_termination = RANSAC_EARLY_TERMINATION;
+    options.concensus_ratio = RANSAC_CONCENSUS_RATIO;
     m_solver->SetOptions(options);
 
     m_pose = Eigen::Matrix4f::Identity(4, 4);
@@ -73,14 +75,13 @@ void VisualOdometer::MatchPoints(
     m_matcher->knnMatch(des_dst, des_src, matches, 2);
 
     // conduct Lowe's ratio test
-    const float dist_thres = 30.0;
-    const float ratio_thres = 0.5;
     for (int i = 0; i < matches.size(); i++)
     {
         float d1 = matches[i][0].distance;
         float d2 = matches[i][1].distance;
 
-        if (d1 < dist_thres && d1 / d2 < ratio_thres)
+        if (d1 < FEATURE_MATCHING_DISTANCE_THRES &&
+            d1 / d2 < FEATURE_MATCHING_RATIO_THRES)
         {
             unsigned int idx_dst = matches[i][0].queryIdx;
             unsigned int idx_src = matches[i][0].trainIdx;
@@ -230,8 +231,8 @@ void VisualOdometer::MatchFeaturesBetweenStereoImages(
     // extract features
     std::vector<cv::Point2f> corners_1;
     std::vector<cv::Point2f> corners_2;
-    cv::goodFeaturesToTrack(img_1, corners_1, 1000, 0.01, 10, cv::noArray(), 5);
-    cv::goodFeaturesToTrack(img_2, corners_2, 1000, 0.01, 10, cv::noArray(), 5);
+    cv::goodFeaturesToTrack(img_1, corners_1, NUM_FEATURES, 0.01, 10, cv::noArray(), 5);
+    cv::goodFeaturesToTrack(img_2, corners_2, NUM_FEATURES, 0.01, 10, cv::noArray(), 5);
 
     // refine features
     cv::Size win_size = cv::Size(5, 5);
@@ -262,8 +263,6 @@ void VisualOdometer::MatchFeaturesBetweenStereoImages(
     m_matcher->knnMatch(descriptors_1_local, descriptors_2_local, knn_matches, 2);
 
     // conduct Lowe's ratio test
-    const float dist_thres = 30.0;
-    const float ratio_thres = 0.5;
     std::vector<cv::DMatch> final_matches;
 
     for (int i = 0; i < knn_matches.size(); i++)
@@ -273,7 +272,8 @@ void VisualOdometer::MatchFeaturesBetweenStereoImages(
         float d1 = match[0].distance;
         float d2 = match[1].distance;
 
-        if (d1 < dist_thres && d1 / d2 < ratio_thres)
+        if (d1 < FEATURE_MATCHING_DISTANCE_THRES &&
+            d1 / d2 < FEATURE_MATCHING_RATIO_THRES)
         {
             unsigned int idx_1 = match[0].queryIdx;
             unsigned int idx_2 = match[0].trainIdx;
